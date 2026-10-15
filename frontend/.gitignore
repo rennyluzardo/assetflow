@@ -1,0 +1,13 @@
+node_modules
+dist
+dist-ssr
+*.local
+
+# TanStack Router genera este archivo; se regenera en cada build/dev.
+# (Se versiona opcionalmente para CI sin Vite, pero aquí se omite.)
+src/routeTree.gen.ts
+
+.vscode/*
+!.vscode/extensions.json
+.idea
+.DS_Store
