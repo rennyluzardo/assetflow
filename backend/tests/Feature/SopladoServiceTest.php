@@ -3,6 +3,8 @@
 use App\Models\InventarioGeneral;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Http\UploadedFile;
+use Illuminate\Support\Facades\Storage;
 use Laravel\Sanctum\Sanctum;
 use Spatie\Permission\Models\Permission;
 use Spatie\Permission\PermissionRegistrar;
@@ -10,7 +12,9 @@ use Spatie\Permission\PermissionRegistrar;
 uses(RefreshDatabase::class);
 
 beforeEach(function () {
-    foreach (['cpus.registrar', 'soplado.registrar', 'cpus.ver_bitacora'] as $permiso) {
+    Storage::fake('public');
+
+    foreach (['cpus.registrar', 'soplado.registrar', 'soplado.ver_bitacora'] as $permiso) {
         Permission::findOrCreate($permiso);
     }
 
@@ -21,10 +25,24 @@ beforeEach(function () {
         'email' => 'operario.soplado@assetflow.test',
     ]);
 
-    $this->analista->givePermissionTo(['cpus.registrar', 'soplado.registrar', 'cpus.ver_bitacora']);
+    $this->analista->givePermissionTo(['cpus.registrar', 'soplado.registrar', 'soplado.ver_bitacora']);
 
     Sanctum::actingAs($this->analista);
 });
+
+function sopladoPayload(string $placa, string $destino = 'ALMACEN'): array
+{
+    return [
+        'placa_id' => $placa,
+        'energiza' => true,
+        'da_video' => true,
+        'acceso_bios' => true,
+        'tipo_suciedad' => 'polvo',
+        'aplica_pasta_termica' => true,
+        'foto_ruta' => UploadedFile::fake()->image('evidencia.jpg'),
+        'ubicacion_destino' => $destino,
+    ];
+}
 
 it('cierra un equipo Por soplar de origen Novedad a Completado', function () {
     InventarioGeneral::factory()->create(['placa_id' => 'AF-SOP-N', 'usuario_cargue' => $this->analista->id]);
@@ -36,18 +54,11 @@ it('cierra un equipo Por soplar de origen Novedad a Completado', function () {
         'ubicacion_destino' => 'SALA_DE_GARANTIA',
     ])->assertCreated();
 
-    $this->postJson('/api/soplado', [
-        'placa_id' => 'AF-SOP-N',
-        'energiza' => true,
-        'da_video' => true,
-        'acceso_bios' => true,
-        'tipo_suciedad' => 'polvo',
-        'aplica_pasta_termica' => true,
-        'foto_ruta' => 'fotos/soplado/AF-SOP-N.jpg',
-        'ubicacion_destino' => 'ALMACEN',
-    ])->assertCreated();
+    $respuesta = $this->post('/api/soplado', sopladoPayload('AF-SOP-N'), ['Accept' => 'application/json']);
 
-    $this->assertDatabaseHas('soplado_registros', ['foto_ruta' => 'fotos/soplado/AF-SOP-N.jpg']);
+    $respuesta->assertCreated();
+    expect($respuesta->json('data.foto_ruta'))->toStartWith('soplado/');
+
     $this->assertDatabaseHas('equipos', ['placa_id' => 'AF-SOP-N', 'estado' => 'COMPLETADO']);
     $this->assertDatabaseHas('inventario_general', ['placa_id' => 'AF-SOP-N', 'intervenido' => true]);
 });
@@ -63,16 +74,7 @@ it('cierra un equipo Por soplar de origen Intervención a Intervenido', function
         'ubicacion_destino' => 'SALA_DE_GARANTIA',
     ])->assertCreated();
 
-    $this->postJson('/api/soplado', [
-        'placa_id' => 'AF-SOP-I',
-        'energiza' => true,
-        'da_video' => true,
-        'acceso_bios' => true,
-        'tipo_suciedad' => 'cucarachas',
-        'aplica_pasta_termica' => true,
-        'foto_ruta' => 'fotos/soplado/AF-SOP-I.jpg',
-        'ubicacion_destino' => 'DBAN',
-    ])->assertCreated();
+    $this->post('/api/soplado', sopladoPayload('AF-SOP-I', 'DBAN'), ['Accept' => 'application/json'])->assertCreated();
 
     $this->assertDatabaseHas('equipos', ['placa_id' => 'AF-SOP-I', 'estado' => 'INTERVENIDO']);
     $this->assertDatabaseHas('inventario_general', [
@@ -85,16 +87,9 @@ it('cierra un equipo Por soplar de origen Intervención a Intervenido', function
 it('rechaza el soplado de un equipo que no está Por soplar', function () {
     InventarioGeneral::factory()->create(['placa_id' => 'AF-SOP-X', 'usuario_cargue' => $this->analista->id]);
 
-    $this->postJson('/api/soplado', [
-        'placa_id' => 'AF-SOP-X',
-        'energiza' => true,
-        'da_video' => true,
-        'acceso_bios' => true,
-        'tipo_suciedad' => 'polvo',
-        'aplica_pasta_termica' => true,
-        'foto_ruta' => 'fotos/soplado/AF-SOP-X.jpg',
-        'ubicacion_destino' => 'ALMACEN',
-    ])->assertStatus(422)->assertJsonValidationErrors('placa_id');
+    $this->post('/api/soplado', sopladoPayload('AF-SOP-X'), ['Accept' => 'application/json'])
+        ->assertStatus(422)
+        ->assertJsonValidationErrors('placa_id');
 });
 
 it('rechaza el soplado con un destino no permitido', function () {
@@ -107,16 +102,9 @@ it('rechaza el soplado con un destino no permitido', function () {
         'ubicacion_destino' => 'SALA_DE_GARANTIA',
     ])->assertCreated();
 
-    $this->postJson('/api/soplado', [
-        'placa_id' => 'AF-SOP-D',
-        'energiza' => true,
-        'da_video' => true,
-        'acceso_bios' => true,
-        'tipo_suciedad' => 'polvo',
-        'aplica_pasta_termica' => true,
-        'foto_ruta' => 'fotos/soplado/AF-SOP-D.jpg',
-        'ubicacion_destino' => 'SALA_DE_BAJA',
-    ])->assertStatus(422)->assertJsonValidationErrors('ubicacion_destino');
+    $this->post('/api/soplado', sopladoPayload('AF-SOP-D', 'SALA_DE_BAJA'), ['Accept' => 'application/json'])
+        ->assertStatus(422)
+        ->assertJsonValidationErrors('ubicacion_destino');
 });
 
 it('rechaza el soplado sin evidencia fotográfica', function () {
@@ -129,13 +117,26 @@ it('rechaza el soplado sin evidencia fotográfica', function () {
         'ubicacion_destino' => 'SALA_DE_GARANTIA',
     ])->assertCreated();
 
-    $this->postJson('/api/soplado', [
-        'placa_id' => 'AF-SOP-F',
-        'energiza' => true,
-        'da_video' => true,
-        'acceso_bios' => true,
-        'tipo_suciedad' => 'polvo',
-        'aplica_pasta_termica' => true,
-        'ubicacion_destino' => 'ALMACEN',
-    ])->assertStatus(422)->assertJsonValidationErrors('foto_ruta');
+    $payload = sopladoPayload('AF-SOP-F');
+    unset($payload['foto_ruta']);
+
+    $this->post('/api/soplado', $payload, ['Accept' => 'application/json'])
+        ->assertStatus(422)
+        ->assertJsonValidationErrors('foto_ruta');
+});
+
+it('devuelve el equipo activo Por soplar desde /soplado/buscar', function () {
+    InventarioGeneral::factory()->create(['placa_id' => 'AF-SOP-B', 'usuario_cargue' => $this->analista->id]);
+
+    $this->postJson('/api/equipos', [
+        'placa_id' => 'AF-SOP-B',
+        'tipo_gestion' => 'NOVEDAD',
+        'requiere_soplado_o_pasta' => true,
+        'ubicacion_destino' => 'SALA_DE_GARANTIA',
+    ])->assertCreated();
+
+    $this->getJson('/api/soplado/buscar/AF-SOP-B')
+        ->assertOk()
+        ->assertJsonPath('data.placa_id', 'AF-SOP-B')
+        ->assertJsonPath('data.equipo_activo.estado', 'POR_SOPLAR');
 });

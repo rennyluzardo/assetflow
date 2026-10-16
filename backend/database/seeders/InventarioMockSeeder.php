@@ -17,12 +17,16 @@ class InventarioMockSeeder extends Seeder
 {
     private User $analista;
 
-    private User $supervisor;
+    private User $cargue;
 
     public function run(): void
     {
-        $this->analista = $this->usuario('analista@assetflow.test', 'Analista de Garantías');
-        $this->supervisor = $this->usuario('supervisor@assetflow.test', 'Supervisor de Garantías');
+        if (InventarioGeneral::where('placa_id', 'AF-100001')->exists()) {
+            return;
+        }
+
+        $this->analista = $this->usuario('cpu@assetflow.local', 'Técnico CPU');
+        $this->cargue = $this->usuario('admin@assetflow.local', 'Administrador');
 
         $this->seedPendientes();
         $this->seedCpus();
@@ -50,7 +54,7 @@ class InventarioMockSeeder extends Seeder
             'num_traslado' => $traslado,
             'estado_actual' => null,
             'intervenido' => false,
-            'usuario_cargue' => $this->supervisor->id,
+            'usuario_cargue' => $this->cargue->id,
         ]);
     }
 

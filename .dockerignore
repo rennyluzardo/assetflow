@@ -1,0 +1,15 @@
+.git
+.claude
+documentation
+frontend
+
+backend/.env
+backend/.env.*
+backend/vendor
+backend/node_modules
+backend/.phpunit.cache
+backend/public/build
+backend/public/hot
+backend/public/storage
+backend/storage
+backend/bootstrap/cache/*.php

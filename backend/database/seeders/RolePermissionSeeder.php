@@ -15,7 +15,7 @@ class RolePermissionSeeder extends Seeder
     {
         app(PermissionRegistrar::class)->forgetCachedPermissions();
 
-        $permissions = [
+        $permisos = [
             'inventario.ver',
             'cargue_masivo.ejecutar',
             'cpus.ver_bitacora',
@@ -28,55 +28,42 @@ class RolePermissionSeeder extends Seeder
             'dashboard.ver_solo_propio',
         ];
 
-        foreach ($permissions as $permission) {
-            Permission::firstOrCreate(['name' => $permission]);
+        foreach ($permisos as $permiso) {
+            Permission::firstOrCreate(['name' => $permiso]);
         }
-
-        $gestionCompleta = [
-            'inventario.ver',
-            'cargue_masivo.ejecutar',
-            'cpus.ver_bitacora',
-            'cpus.registrar',
-            'soplado.ver_bitacora',
-            'soplado.registrar',
-            'portatiles.ver_bitacora',
-            'portatiles.registrar',
-            'trazabilidad.ver',
-        ];
-
-        $operacionTaller = [
-            'cpus.ver_bitacora',
-            'cpus.registrar',
-            'soplado.ver_bitacora',
-            'soplado.registrar',
-            'portatiles.ver_bitacora',
-            'portatiles.registrar',
-            'trazabilidad.ver',
-            'dashboard.ver_solo_propio',
-        ];
 
         $admin = Role::firstOrCreate(['name' => 'admin']);
-        $admin->syncPermissions($gestionCompleta);
-
-        $supervisor = Role::firstOrCreate(['name' => 'supervisor']);
-        $supervisor->syncPermissions($gestionCompleta);
+        $admin->syncPermissions($permisos);
 
         $analista = Role::firstOrCreate(['name' => 'analista']);
-        $analista->syncPermissions($operacionTaller);
+        $analista->syncPermissions(['inventario.ver', 'trazabilidad.ver']);
 
-        $usuarios = [
-            ['name' => 'Administrador', 'email' => 'admin@assetflow.test', 'role' => 'admin'],
-            ['name' => 'Supervisor de Garantías', 'email' => 'supervisor@assetflow.test', 'role' => 'supervisor'],
-            ['name' => 'Analista de Garantías', 'email' => 'analista@assetflow.test', 'role' => 'analista'],
-        ];
+        $this->usuario('Administrador', 'admin@assetflow.local', 'admin');
+        $this->usuario('Técnico CPU', 'cpu@assetflow.local', 'analista', [
+            'cpus.ver_bitacora',
+            'cpus.registrar',
+        ]);
+        $this->usuario('Técnico Soplado', 'soplado@assetflow.local', 'analista', [
+            'soplado.ver_bitacora',
+            'soplado.registrar',
+        ]);
+    }
 
-        foreach ($usuarios as $datos) {
-            $usuario = User::firstOrCreate(
-                ['email' => $datos['email']],
-                ['name' => $datos['name'], 'password' => Hash::make('password')],
-            );
+    /**
+     * Crea (o reutiliza) un usuario de desarrollo y le asigna rol + permisos directos.
+     *
+     * @param  string[]  $permisosDirectos
+     */
+    private function usuario(string $name, string $email, string $role, array $permisosDirectos = []): User
+    {
+        $usuario = User::firstOrCreate(
+            ['email' => $email],
+            ['name' => $name, 'password' => Hash::make('password')],
+        );
 
-            $usuario->syncRoles([$datos['role']]);
-        }
+        $usuario->syncRoles([$role]);
+        $usuario->syncPermissions($permisosDirectos);
+
+        return $usuario;
     }
 }

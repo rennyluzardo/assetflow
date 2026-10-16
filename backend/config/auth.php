@@ -14,7 +14,10 @@ return [
     */
 
     'defaults' => [
-        'guard' => env('AUTH_GUARD', 'web'),
+        // Guard por defecto `sanctum`: la API se consume con tokens Bearer, por lo
+        // que roles/permisos de Spatie se crean y consultan siempre bajo este guard
+        // (evita el desfase web/sanctum al resolver el middleware `permission:*`).
+        'guard' => env('AUTH_GUARD', 'sanctum'),
         'passwords' => env('AUTH_PASSWORD_BROKER', 'users'),
     ],
 
@@ -38,6 +41,11 @@ return [
     'guards' => [
         'web' => [
             'driver' => 'session',
+            'provider' => 'users',
+        ],
+
+        'sanctum' => [
+            'driver' => 'sanctum',
             'provider' => 'users',
         ],
     ],

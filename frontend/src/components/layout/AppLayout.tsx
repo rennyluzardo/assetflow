@@ -1,23 +1,29 @@
 import type { ReactNode } from 'react'
 import { Link } from '@tanstack/react-router'
+import { useAuth } from '@/features/auth/AuthContext'
 
 interface NavItem {
   to: string
   label: string
+  permiso: string
 }
 
 const NAV_ITEMS: NavItem[] = [
-  { to: '/dashboard', label: 'Dashboard' },
-  { to: '/cargue-masivo', label: 'Cargue Masivo' },
-  { to: '/inventario', label: 'Inventario' },
-  { to: '/equipos', label: 'Equipos' },
-  { to: '/soplado', label: 'Soplado' },
-  { to: '/portatiles', label: 'Portátiles' },
-  { to: '/trazabilidad', label: 'Trazabilidad' },
+  { to: '/dashboard', label: 'Dashboard', permiso: 'dashboard.ver_solo_propio' },
+  { to: '/cargue-masivo', label: 'Cargue Masivo', permiso: 'cargue_masivo.ejecutar' },
+  { to: '/inventario', label: 'Inventario', permiso: 'inventario.ver' },
+  { to: '/equipos', label: 'Equipos', permiso: 'cpus.ver_bitacora' },
+  { to: '/soplado', label: 'Soplado', permiso: 'soplado.ver_bitacora' },
+  { to: '/portatiles', label: 'Portátiles', permiso: 'portatiles.ver_bitacora' },
+  { to: '/trazabilidad', label: 'Trazabilidad', permiso: 'trazabilidad.ver' },
 ]
 
 /** Shell minimalista escandinavo: sidebar clara, borde sutil, sin sombras dramáticas. */
 export function AppLayout({ children }: { children: ReactNode }) {
+  const { session, logout, hasPermission } = useAuth()
+  const items = NAV_ITEMS.filter((item) => hasPermission(item.permiso))
+  const rol = session?.roles[0] ?? 'analista'
+
   return (
     <div className="flex min-h-screen bg-canvas text-slate-900">
       <aside className="flex w-60 shrink-0 flex-col border-r border-line bg-surface">
@@ -26,7 +32,7 @@ export function AppLayout({ children }: { children: ReactNode }) {
         </div>
 
         <nav className="flex flex-1 flex-col gap-1 p-3">
-          {NAV_ITEMS.map((item) => (
+          {items.map((item) => (
             <Link
               key={item.to}
               to={item.to}
@@ -39,7 +45,22 @@ export function AppLayout({ children }: { children: ReactNode }) {
           ))}
         </nav>
 
-        <footer className="border-t border-line p-4 text-xs text-slate-400">AssetFlow · ITAM</footer>
+        <footer className="border-t border-line p-4">
+          {session && (
+            <div className="mb-3">
+              <p className="truncate text-sm font-medium text-slate-700">{session.user.name}</p>
+              <p className="mt-0.5 text-xs capitalize text-slate-400">{rol}</p>
+            </div>
+          )}
+          <button
+            type="button"
+            onClick={() => void logout()}
+            className="w-full rounded-md border border-line bg-canvas px-3 py-1.5 text-left text-xs font-medium text-slate-600 transition-colors hover:border-slate-300 hover:text-slate-900"
+          >
+            Cerrar sesión
+          </button>
+          <p className="mt-2 text-[11px] text-slate-400">AssetFlow · ITAM</p>
+        </footer>
       </aside>
 
       <main className="min-w-0 flex-1">{children}</main>

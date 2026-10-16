@@ -22,7 +22,7 @@ class RegistrarSopladoRequest extends FormRequest
             'acceso_bios' => ['required', 'boolean'],
             'tipo_suciedad' => ['required', 'string', 'max:50'],
             'aplica_pasta_termica' => ['required', 'boolean'],
-            'foto_ruta' => ['required', 'string', 'max:2048'],
+            'foto_ruta' => ['required', 'image', 'mimes:jpeg,png,jpg,webp', 'max:5120'],
             'ubicacion_destino' => ['required', new Enum(UbicacionDestinoEnum::class)],
         ];
     }

@@ -1,0 +1,44 @@
+services:
+  db:
+    image: postgres:16-alpine
+    container_name: assetflow-db
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: ${DB_DATABASE:-assetflow}
+      POSTGRES_USER: ${DB_USERNAME:-assetflow}
+      POSTGRES_PASSWORD: ${DB_PASSWORD:-assetflow}
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${DB_USERNAME:-assetflow} -d ${DB_DATABASE:-assetflow}"]
+      interval: 5s
+      timeout: 5s
+      retries: 12
+
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: assetflow-api
+    restart: unless-stopped
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      APP_ENV: local
+      APP_DEBUG: "true"
+      DB_CONNECTION: pgsql
+      DB_HOST: db
+      DB_PORT: "5432"
+      DB_DATABASE: ${DB_DATABASE:-assetflow}
+      DB_USERNAME: ${DB_USERNAME:-assetflow}
+      DB_PASSWORD: ${DB_PASSWORD:-assetflow}
+    ports:
+      - "8080:80"
+    volumes:
+      - ./backend/storage:/var/www/html/storage
+
+volumes:
+  postgres_data:
