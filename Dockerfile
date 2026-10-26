@@ -13,7 +13,7 @@ RUN npm install --no-audit --no-fund
 COPY backend/ ./
 RUN npm run build
 
-FROM php:8.3-apache AS runtime
+FROM php:8.4-apache AS runtime
 WORKDIR /var/www/html
 
 RUN apt-get update \
