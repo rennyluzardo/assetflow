@@ -1,5 +1,8 @@
 FROM composer:2 AS php-deps
 WORKDIR /app
+RUN apk add --no-cache libpng-dev libjpeg-turbo-dev freetype-dev \
+    && docker-php-ext-configure gd --with-freetype --with-jpeg \
+    && docker-php-ext-install gd
 COPY backend/composer.json backend/composer.lock ./
 RUN composer install --no-dev --no-interaction --prefer-dist --optimize-autoloader --no-scripts
 
@@ -14,8 +17,9 @@ FROM php:8.3-apache AS runtime
 WORKDIR /var/www/html
 
 RUN apt-get update \
-    && apt-get install -y --no-install-recommends libpq-dev libzip-dev unzip \
-    && docker-php-ext-install pdo_pgsql zip \
+    && apt-get install -y --no-install-recommends libpq-dev libzip-dev unzip libpng-dev libjpeg62-turbo-dev libfreetype6-dev \
+    && docker-php-ext-configure gd --with-freetype --with-jpeg \
+    && docker-php-ext-install pdo_pgsql zip gd \
     && a2enmod rewrite \
     && rm -rf /var/lib/apt/lists/*
 
