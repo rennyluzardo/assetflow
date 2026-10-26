@@ -18,7 +18,7 @@ export function EquipoForm({ equipo, onGuardado }: EquipoFormProps) {
   const pregunta = form.preguntaActual ? CATALOGO_PREGUNTAS[form.preguntaActual] : null
 
   return (
-    <div className="max-w-2xl rounded-lg border border-line bg-surface p-5">
+    <div className="mx-auto w-full max-w-2xl rounded-lg border border-line bg-surface p-5">
       {form.reanudable && (
         <div className="mb-5 rounded-md border border-estado-ambar-line bg-estado-ambar px-4 py-3">
           <p className="text-sm text-estado-ambar-ink">

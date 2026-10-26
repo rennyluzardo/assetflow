@@ -1,12 +1,23 @@
-import type { InventarioBusqueda } from '@/types/equipos'
+import type { EstadoEquipo, UbicacionDestino } from '@/constants/equipos'
 import { UBICACION_LABELS } from '@/constants/equipos'
 import { StatusBadge } from '@/components/StatusBadge'
 import { cn } from '@/lib/cn'
 
+/** Subconjunto estructural del activo escaneado, compartido por `/equipos`, `/soplado` y `/portatiles`. */
+export interface ResumenActivo {
+  placa_id: string
+  serial: string
+  referencia: string | null
+  descripcion: string
+  num_traslado: string
+  ubicacion_actual: UbicacionDestino | null
+  estado_actual: EstadoEquipo | null
+}
+
 /** Datos autocompletados desde inventario al escanear la placa (sin digitación manual). */
-export function EquipoResumen({ equipo }: { equipo: InventarioBusqueda }) {
+export function EquipoResumen({ equipo }: { equipo: ResumenActivo }) {
   return (
-    <dl className="max-w-2xl grid grid-cols-2 gap-x-6 gap-y-4 rounded-lg border border-line bg-surface p-5 sm:grid-cols-3">
+    <dl className="mx-auto grid w-full max-w-2xl grid-cols-2 gap-x-6 gap-y-4 rounded-lg border border-line bg-surface p-5 sm:grid-cols-3">
       <Campo etiqueta="Placa" mono>
         {equipo.placa_id}
       </Campo>

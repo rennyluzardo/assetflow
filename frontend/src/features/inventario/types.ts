@@ -1,4 +1,5 @@
 import type { EstadoEquipo, UbicacionDestino } from '@/constants/equipos'
+import type { ColumnaOrdenable, DireccionOrden } from './orden'
 
 /** Registro de la tabla maestra devuelto por `GET /api/inventario`. */
 export interface InventarioItem {
@@ -36,6 +37,8 @@ export interface InventarioParams {
   search?: string
   num_traslado?: string
   estado_actual?: string
+  sort?: ColumnaOrdenable
+  direction?: DireccionOrden
 }
 
 /** Filtros editables desde la URL de `/inventario`. */
@@ -45,4 +48,6 @@ export interface InventarioSearchParams {
   estado_actual: string
   per_page: number
   page: number
+  sort: ColumnaOrdenable | ''
+  direction: DireccionOrden | ''
 }

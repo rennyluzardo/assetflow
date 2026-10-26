@@ -102,7 +102,7 @@ export function EquiposScreen() {
       </header>
 
       {ultimoRegistro && (
-        <div className="flex max-w-2xl items-center justify-between rounded-md border border-estado-verde-line bg-estado-verde px-4 py-3">
+        <div className="mx-auto flex w-full max-w-2xl items-center justify-between rounded-md border border-estado-verde-line bg-estado-verde px-4 py-3">
           <p className="flex items-center gap-2 text-sm text-estado-verde-ink">
             Registro guardado — estado <StatusBadge estado={ultimoRegistro.estado} />
           </p>
@@ -116,7 +116,7 @@ export function EquiposScreen() {
         </div>
       )}
 
-      <section className="max-w-2xl">
+      <section className="mx-auto w-full max-w-2xl">
         <ScannerInput
           value={placaId}
           onChange={setPlacaId}

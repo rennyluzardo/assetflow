@@ -36,7 +36,7 @@ class RolePermissionSeeder extends Seeder
         $admin->syncPermissions($permisos);
 
         $analista = Role::firstOrCreate(['name' => 'analista']);
-        $analista->syncPermissions(['inventario.ver', 'trazabilidad.ver']);
+        $analista->syncPermissions(['inventario.ver', 'trazabilidad.ver', 'dashboard.ver_solo_propio']);
 
         $this->usuario('Administrador', 'admin@assetflow.local', 'admin');
         $this->usuario('Técnico CPU', 'cpu@assetflow.local', 'analista', [
@@ -46,6 +46,12 @@ class RolePermissionSeeder extends Seeder
         $this->usuario('Técnico Soplado', 'soplado@assetflow.local', 'analista', [
             'soplado.ver_bitacora',
             'soplado.registrar',
+        ]);
+        $this->usuario('Técnico Portátiles', 'portatiles@assetflow.local', 'analista', [
+            'portatiles.ver_bitacora',
+            'portatiles.registrar',
+            'inventario.ver',
+            'trazabilidad.ver',
         ]);
     }
 

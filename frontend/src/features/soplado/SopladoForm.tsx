@@ -78,7 +78,7 @@ export function SopladoForm({ equipo, onGuardado }: SopladoFormProps) {
   return (
     <form
       onSubmit={handleSubmit}
-      className="max-w-2xl space-y-6 rounded-lg border border-line bg-surface p-5"
+      className="mx-auto w-full max-w-2xl space-y-6 rounded-lg border border-line bg-surface p-5"
     >
       <div>
         <h2 className="text-sm font-medium text-slate-700">Inspección de limpieza</h2>

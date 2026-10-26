@@ -2,9 +2,12 @@
 
 use App\Http\Controllers\AuthController;
 use App\Http\Controllers\CargueMasivoController;
+use App\Http\Controllers\DashboardController;
 use App\Http\Controllers\EquiposController;
 use App\Http\Controllers\InventarioController;
+use App\Http\Controllers\PortatilesController;
 use App\Http\Controllers\SopladoController;
+use App\Http\Controllers\TrazabilidadController;
 use Illuminate\Support\Facades\Route;
 
 Route::post('/login', [AuthController::class, 'login'])->name('auth.login');
@@ -40,4 +43,36 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::post('/cargue-masivo', [CargueMasivoController::class, 'store'])
         ->middleware('permission:cargue_masivo.ejecutar')
         ->name('cargue-masivo.store');
+
+    Route::get('/portatiles', [PortatilesController::class, 'index'])
+        ->middleware('permission:portatiles.ver_bitacora')
+        ->name('portatiles.index');
+
+    Route::get('/portatiles/buscar/{placaId}', [PortatilesController::class, 'buscar'])
+        ->middleware('permission:portatiles.registrar')
+        ->name('portatiles.buscar');
+
+    Route::post('/portatiles', [PortatilesController::class, 'store'])
+        ->middleware('permission:portatiles.registrar')
+        ->name('portatiles.store');
+
+    Route::patch('/portatiles/{id}/cerrar', [PortatilesController::class, 'cerrar'])
+        ->middleware('permission:portatiles.registrar')
+        ->name('portatiles.cerrar');
+
+    Route::post('/portatiles/{id}/foto', [PortatilesController::class, 'foto'])
+        ->middleware('permission:portatiles.registrar')
+        ->name('portatiles.foto');
+
+    Route::get('/trazabilidad', [TrazabilidadController::class, 'index'])
+        ->middleware('permission:trazabilidad.ver')
+        ->name('trazabilidad.index');
+
+    Route::get('/dashboard', [DashboardController::class, 'index'])
+        ->middleware('permission:dashboard.ver_solo_propio')
+        ->name('dashboard.index');
+
+    Route::get('/dashboard/exportar-csv', [DashboardController::class, 'exportarCsv'])
+        ->middleware('permission:dashboard.ver_solo_propio')
+        ->name('dashboard.exportar-csv');
 });

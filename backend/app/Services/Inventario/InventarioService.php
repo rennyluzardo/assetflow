@@ -11,6 +11,8 @@ use App\Models\InventarioGeneral;
  */
 final class InventarioService
 {
+    public function __construct(private readonly OrdenInventarioService $orden) {}
+
     /**
      * Columnas proyectadas para la tabla maestra (sin cargar relaciones).
      *
@@ -59,7 +61,13 @@ final class InventarioService
             }
         }
 
-        $paginator = $query->orderByDesc('id')->paginate((int) $request->validated('per_page', 250));
+        $this->orden->aplicar(
+            $query,
+            $request->validated('sort'),
+            $request->validated('direction'),
+        );
+
+        $paginator = $query->paginate((int) $request->validated('per_page', 250));
 
         return [
             'data' => $paginator->items(),

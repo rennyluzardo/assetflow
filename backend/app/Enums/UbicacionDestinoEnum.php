@@ -18,4 +18,18 @@ enum UbicacionDestinoEnum: string
             self::SALA_DE_BAJA => 'Sala de Baja',
         };
     }
+
+    /**
+     * Posición en el recorrido físico del activo (menor = más pendiente de trabajo).
+     * Se usa para ordenar la columna Ubicación por proceso y no alfabéticamente.
+     */
+    public function ordenFlujo(): int
+    {
+        return match ($this) {
+            self::SALA_DE_GARANTIA => 1,
+            self::DBAN => 2,
+            self::ALMACEN => 3,
+            self::SALA_DE_BAJA => 4,
+        };
+    }
 }

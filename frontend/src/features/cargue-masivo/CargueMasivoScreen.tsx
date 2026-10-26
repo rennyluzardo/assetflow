@@ -90,7 +90,7 @@ export function CargueMasivoScreen() {
 
       <form
         onSubmit={handleSubmit}
-        className="max-w-2xl space-y-6 rounded-lg border border-line bg-surface p-5"
+        className="mx-auto w-full max-w-2xl space-y-6 rounded-lg border border-line bg-surface p-5"
       >
         <div>
           <label htmlFor="num_traslado" className="mb-1.5 block text-sm font-medium text-slate-700">
@@ -189,7 +189,7 @@ export function CargueMasivoScreen() {
 /** Resumen posterior a la ingesta: insertados, omitidos y detalle de errores. */
 function ResumenResultado({ resultado }: { resultado: CargueResultado }) {
   return (
-    <section className="max-w-2xl rounded-lg border border-estado-verde-line bg-estado-verde p-5">
+    <section className="mx-auto w-full max-w-2xl rounded-lg border border-estado-verde-line bg-estado-verde p-5">
       <h2 className="text-sm font-medium text-estado-verde-ink">Lote procesado — {resultado.num_traslado}</h2>
       <dl className="mt-3 grid grid-cols-2 gap-4">
         <div>

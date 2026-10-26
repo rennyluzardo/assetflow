@@ -8,6 +8,14 @@ import type { AuthPayload, LoginResponse } from '@/features/auth/types'
 import type { RegistrarSopladoPayload, SopladoRegistroResult } from '@/features/soplado/types'
 import type { InventarioParams, InventarioResponse } from '@/features/inventario/types'
 import type { CargueResultado, ProcesarCarguePayload } from '@/features/cargue-masivo/types'
+import type {
+  CerrarPortatilPayload,
+  PortatilBusqueda,
+  PortatilRegistro,
+  RegistrarPortatilPayload,
+} from '@/features/portatiles/types'
+import type { TrazabilidadResponse } from '@/features/trazabilidad/types'
+import type { DashboardParams, DashboardResponse } from '@/features/dashboard/types'
 
 const TOKEN_KEY = 'assetflow_token'
 
@@ -164,6 +172,10 @@ export const api = {
     if (params.search) query.set('search', params.search)
     if (params.num_traslado) query.set('num_traslado', params.num_traslado)
     if (params.estado_actual) query.set('estado_actual', params.estado_actual)
+    if (params.sort) {
+      query.set('sort', params.sort)
+      if (params.direction) query.set('direction', params.direction)
+    }
 
     const queryString = query.toString()
     return request<InventarioResponse>(`/inventario${queryString ? `?${queryString}` : ''}`)
@@ -178,6 +190,58 @@ export const api = {
       method: 'POST',
       body: form,
     })
+    return res.data
+  },
+
+  async buscarPortatil(placaId: string): Promise<PortatilBusqueda> {
+    const res = await request<{ data: PortatilBusqueda }>(
+      `/portatiles/buscar/${encodeURIComponent(placaId)}`,
+    )
+    return res.data
+  },
+
+  async registrarPortatil(payload: RegistrarPortatilPayload): Promise<PortatilRegistro> {
+    const res = await request<{ data: PortatilRegistro }>('/portatiles', {
+      method: 'POST',
+      body: JSON.stringify(payload),
+    })
+    return res.data
+  },
+
+  async cerrarPortatil(id: number, payload: CerrarPortatilPayload): Promise<PortatilRegistro> {
+    const res = await request<{ data: PortatilRegistro }>(`/portatiles/${id}/cerrar`, {
+      method: 'PATCH',
+      body: JSON.stringify(payload),
+    })
+    return res.data
+  },
+
+  async subirFotoPortatil(id: number, file: File): Promise<PortatilRegistro> {
+    const form = new FormData()
+    form.append('foto_evidencia', file)
+
+    const res = await request<{ data: PortatilRegistro }>(`/portatiles/${id}/foto`, {
+      method: 'POST',
+      body: form,
+    })
+    return res.data
+  },
+
+  async buscarTrazabilidad(q: string): Promise<TrazabilidadResponse> {
+    const query = new URLSearchParams({ q })
+    return request<TrazabilidadResponse>(`/trazabilidad?${query.toString()}`)
+  },
+
+  async dashboard(params: DashboardParams): Promise<DashboardResponse> {
+    const query = new URLSearchParams()
+    if (params.periodo) query.set('periodo', params.periodo)
+    if (params.modulo) query.set('modulo', params.modulo)
+    if (params.estado) query.set('estado', params.estado)
+
+    const queryString = query.toString()
+    const res = await request<{ data: DashboardResponse }>(
+      `/dashboard${queryString ? `?${queryString}` : ''}`,
+    )
     return res.data
   },
 }

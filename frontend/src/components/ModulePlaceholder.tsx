@@ -11,7 +11,7 @@ export function ModulePlaceholder({ title, description }: ModulePlaceholderProps
         <h1 className="text-2xl font-semibold tracking-tight text-slate-900">{title}</h1>
         {description && <p className="mt-1 text-sm text-slate-500">{description}</p>}
       </header>
-      <div className="flex flex-1 items-center justify-center rounded-lg border border-dashed border-line bg-surface p-10">
+      <div className="mx-auto flex w-full max-w-2xl flex-1 items-center justify-center rounded-lg border border-dashed border-line bg-surface p-10">
         <p className="text-sm text-slate-400">Módulo en construcción — fase posterior.</p>
       </div>
     </div>

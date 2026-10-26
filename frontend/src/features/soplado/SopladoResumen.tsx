@@ -4,7 +4,7 @@ import { UBICACION_LABELS } from '@/constants/equipos'
 /** Datos autocompletados desde inventario al escanear una placa en cola de soplado. */
 export function SopladoResumen({ equipo }: { equipo: InventarioBusqueda }) {
   return (
-    <dl className="max-w-2xl grid grid-cols-1 gap-x-6 gap-y-4 rounded-lg border border-line bg-surface p-5 sm:grid-cols-3">
+    <dl className="mx-auto grid w-full max-w-2xl grid-cols-1 gap-x-6 gap-y-4 rounded-lg border border-line bg-surface p-5 sm:grid-cols-3">
       <Campo etiqueta="Serial">{equipo.serial}</Campo>
       <Campo etiqueta="N.º Traslado">{equipo.num_traslado}</Campo>
       <Campo etiqueta="Ubicación actual">

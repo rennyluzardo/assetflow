@@ -8,6 +8,7 @@ const DEV_USERS = [
   { email: 'admin@assetflow.local', label: 'Administrador' },
   { email: 'cpu@assetflow.local', label: 'Técnico CPU' },
   { email: 'soplado@assetflow.local', label: 'Técnico Soplado' },
+  { email: 'portatiles@assetflow.local', label: 'Técnico Portátiles' },
 ] as const
 
 /** Pantalla de acceso con estética escandinava y accesos rápidos de desarrollo. */

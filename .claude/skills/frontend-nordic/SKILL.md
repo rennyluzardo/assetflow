@@ -16,8 +16,10 @@ description: Desarrollo Frontend con React, TanStack Router, UX para escáner de
 ## 2. Ergonomía de Taller (Pistola Lectora y Modales)
 - **Inputs de Escaneo (`placa_id`):** Deben tener `autoFocus`, seleccionar su contenido al recibir foco y disparar la consulta inmediatamente al detectar `Enter` (comportamiento nativo de pistola de código de barras) sin recargar la página[cite: 1, 2].
 - **Formularios Progresivos en `/equipos`:** Muestra las preguntas clínicas paso a paso según el árbol de decisión[cite: 5]. Filtra el selector de `ubicacion_destino` únicamente a las opciones válidas y muestra una píldora de previsualización: *"Al guardar pasará a estado: [ESTADO]"*[cite: 5].
-- **Cierre Estricto de Modales en `/portatiles`:** Los portátiles NO pasan por `/soplado`; al guardar el formulario de portátil (con Test de Lenovo, serial de disco y FRU), la modal debe cerrar el estatus definitivamente y refrescar la query del inventario[cite: 1, 2].
+- **Formulario de Portátiles en `/portatiles`:** Los portátiles NO pasan por `/soplado`; viven en un Registro Único. La pantalla sigue el patrón escáner → veredicto → formulario: clasificación (`FUNCIONAL`/`NOVEDAD`/`GARANTIA`/`DANO_REPARABLE`/`BAJA`), campos técnicos (Test de Lenovo, serial de disco, `partes_fru`, `piezas_solicitar`), sub-campos condicionales según la rama, y un paso `DestinoStep` con la píldora *"Al guardar pasará a estado: [ESTADO]"*[cite: 1, 2, 5]. El cierre se hace en `CierrePortatilModal`, que exige `reparado_por` y permite foto opcional; al cerrar refresca las queries de `inventario` y `portatiles`[cite: 1, 2].
+- **Trazabilidad de solo lectura en `/trazabilidad`:** Línea de tiempo vertical escandinava (`TrazabilidadTimeline`) con punto de color, estación, `StatusBadge`, fecha en `font-mono`, analista, ubicación y evidencia fotográfica. Soporta enlace profundo `?placa_id=` que dispara la consulta automáticamente[cite: 1, 4].
 
 ## 3. Arquitectura de Rutas en TanStack Router
 Usa enrutamiento tipado (`createFileRoute`) con validación de `searchParams` (para filtros de tabla y paginación de 250 a 1000 ítems)[cite: 1]:
 - `/dashboard`, `/cargue-masivo`, `/inventario`, `/equipos`, `/soplado`, `/portatiles`, `/trazabilidad`[cite: 1].
+- `/trazabilidad` valida `placa_id` en `searchParams` (`validateSearch`) para permitir el enlace profundo desde otras estaciones[cite: 1].

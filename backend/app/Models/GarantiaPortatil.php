@@ -2,7 +2,11 @@
 
 namespace App\Models;
 
+use App\Enums\CausalBajaEnum;
+use App\Enums\ClasificacionPortatilEnum;
 use App\Enums\EstadoEquipoEnum;
+use App\Enums\GravedadNovedadEnum;
+use App\Enums\OrigenDanoGarantiaEnum;
 use App\Enums\UbicacionDestinoEnum;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
@@ -23,22 +27,32 @@ class GarantiaPortatil extends Model
         'marca',
         'referencia',
         'num_traslado',
-        'tipo_gestion',
+        'clasificacion',
+        'gravedad_novedad',
+        'origen_dano_garantia',
+        'causal_baja',
+        'cantidad_danos',
         'test_lenovo',
         'serial_disco',
         'ticket_proveedor',
-        'parte_fru',
+        'partes_fru',
         'piezas_solicitar',
+        'reparado_por',
+        'observaciones',
+        'foto_evidencia',
         'ubicacion_destino',
         'estado',
-        'foto_equipo',
-        'observaciones',
         'analista_id',
     ];
 
     protected function casts(): array
     {
         return [
+            'clasificacion' => ClasificacionPortatilEnum::class,
+            'gravedad_novedad' => GravedadNovedadEnum::class,
+            'origen_dano_garantia' => OrigenDanoGarantiaEnum::class,
+            'causal_baja' => CausalBajaEnum::class,
+            'cantidad_danos' => 'integer',
             'test_lenovo' => 'boolean',
             'ubicacion_destino' => UbicacionDestinoEnum::class,
             'estado' => EstadoEquipoEnum::class,

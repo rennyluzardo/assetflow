@@ -3,6 +3,7 @@
 namespace App\Http\Requests\Inventario;
 
 use App\Enums\EstadoEquipoEnum;
+use App\Enums\InventarioOrdenableEnum;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Rule;
 
@@ -24,6 +25,8 @@ class ListarInventarioRequest extends FormRequest
             'search' => ['sometimes', 'string', 'max:255'],
             'num_traslado' => ['sometimes', 'string', 'max:255'],
             'estado_actual' => ['sometimes', 'string', Rule::in($estados)],
+            'sort' => ['sometimes', 'string', Rule::in(InventarioOrdenableEnum::valores())],
+            'direction' => ['sometimes', 'string', Rule::in(['asc', 'desc'])],
         ];
     }
 }
