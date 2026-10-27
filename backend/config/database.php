@@ -13,9 +13,13 @@ use Illuminate\Support\Str;
 | la salida con deprecaciones en 8.5+.
 |
 */
-$mysqlSslCa = defined('Pdo\Mysql::ATTR_SSL_CA')
-    ? constant('Pdo\Mysql::ATTR_SSL_CA')
-    : PDO::MYSQL_ATTR_SSL_CA;
+$mysqlSslCa = null;
+
+if (extension_loaded('pdo_mysql')) {
+    $mysqlSslCa = defined('Pdo\Mysql::ATTR_SSL_CA')
+        ? constant('Pdo\Mysql::ATTR_SSL_CA')
+        : PDO::MYSQL_ATTR_SSL_CA;
+}
 
 return [
 
