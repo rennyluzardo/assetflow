@@ -44,7 +44,7 @@ class AuthController extends Controller
     private function payload(User $usuario): array
     {
         return [
-            'user' => $usuario->only(['id', 'name', 'email']),
+            'user' => $usuario->only(['id', 'name', 'email', 'sede']),
             'roles' => $usuario->getRoleNames()->values()->all(),
             'permissions' => $usuario->getAllPermissions()->pluck('name')->values()->all(),
         ];

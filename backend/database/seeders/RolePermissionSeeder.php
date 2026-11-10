@@ -26,6 +26,8 @@ class RolePermissionSeeder extends Seeder
             'portatiles.registrar',
             'trazabilidad.ver',
             'dashboard.ver_solo_propio',
+            'traslados.ver',
+            'traslados.registrar',
         ];
 
         foreach ($permisos as $permiso) {

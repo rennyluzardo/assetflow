@@ -5,15 +5,20 @@ namespace Database\Seeders;
 use App\Enums\CausalBajaEnum;
 use App\Enums\ClasificacionPortatilEnum;
 use App\Enums\EstadoEquipoEnum;
+use App\Enums\GravedadNovedadEnum;
 use App\Enums\ModuloIntervencionEnum;
 use App\Enums\OrigenDanoGarantiaEnum;
+use App\Enums\SedeOperativaEnum;
+use App\Enums\SubtipoIntervencionEnum;
 use App\Enums\TipoGestionEnum;
 use App\Enums\UbicacionDestinoEnum;
 use App\Models\Equipo;
 use App\Models\GarantiaPortatil;
 use App\Models\InventarioGeneral;
 use App\Models\SopladoRegistro;
+use App\Models\Traslado;
 use App\Models\User;
+use App\Services\Traslados\TrasladoService;
 use Illuminate\Database\Seeder;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\DB;
@@ -63,6 +68,7 @@ class DemoOperativoSeeder extends Seeder
     {
         $this->limpiarDemo();
         $this->cargarUsuarios();
+        $this->crearTraslados();
 
         $this->assets = $this->construirAssets();
         $this->cursor = 0;
@@ -82,6 +88,10 @@ class DemoOperativoSeeder extends Seeder
     private function limpiarDemo(): void
     {
         DB::transaction(function (): void {
+            // Cabeceras demo en `traslados` (el `codigo` es único; se limpian para
+            // que el seeder sea idempotente y no colisione con corridas previas).
+            Traslado::withTrashed()->whereIn('codigo', self::TRASLADOS_DEMO)->forceDelete();
+
             $demoIds = InventarioGeneral::withTrashed()
                 ->whereIn('num_traslado', self::TRASLADOS_DEMO)
                 ->pluck('id');
@@ -112,6 +122,32 @@ class DemoOperativoSeeder extends Seeder
             ['email' => $email],
             ['name' => $name, 'password' => Hash::make('password')],
         );
+    }
+
+    /**
+     * Cabeceras en `traslados` de los lotes demo con rutas realistas: Bogotá
+     * queda como destino (bodega de garantías) y los lotes 319127/319128
+     * provienen de Medellín, mientras 319126 nace en la propia Bogotá.
+     */
+    private function crearTraslados(): void
+    {
+        $rutas = [
+            '319126' => [SedeOperativaEnum::BOGOTA, 'Bodega Norte'],
+            '319127' => [SedeOperativaEnum::MEDELLIN, 'Bodega Sur'],
+            '319128' => [SedeOperativaEnum::MEDELLIN, 'Bodega Sur'],
+        ];
+
+        foreach ($rutas as $codigo => [$origen, $origenExacta]) {
+            Traslado::create([
+                'codigo' => $codigo,
+                'zona_origen' => $origen,
+                'ubicacion_origen_exacta' => $origenExacta,
+                'zona_destino' => SedeOperativaEnum::BOGOTA,
+                'ubicacion_destino_exacta' => '30052001965-CNCTF_P01_GARANTIAS',
+                'estado' => TrasladoService::EN_TRANSITO,
+                'analista_id' => $this->cargue->id,
+            ]);
+        }
     }
 
     /**
@@ -250,6 +286,8 @@ class DemoOperativoSeeder extends Seeder
             'ubicacion_destino' => $destino,
             'estado' => $estado,
             'observaciones' => $campos['observaciones'] ?? null,
+            'motivo_baja' => $campos['motivo_baja'] ?? null,
+            'serial_disco' => $campos['serial_disco'] ?? null,
             'analista_id' => $this->cpu->id,
         ]);
     }
@@ -292,6 +330,10 @@ class DemoOperativoSeeder extends Seeder
     {
         $inventario = $this->inventario($asset, $estado, $destino, $this->portatiles->id, ModuloIntervencionEnum::PORTATILES->value, $fecha);
 
+        $origen = $campos['clasificacion'] === ClasificacionPortatilEnum::GARANTIA
+            ? OrigenDanoGarantiaEnum::FABRICA
+            : null;
+
         GarantiaPortatil::create([
             'inventario_general_id' => $inventario->id,
             'placa_id' => $inventario->placa_id,
@@ -301,13 +343,17 @@ class DemoOperativoSeeder extends Seeder
             'num_traslado' => $inventario->num_traslado,
             'clasificacion' => $campos['clasificacion'],
             'gravedad_novedad' => $campos['gravedad_novedad'] ?? null,
-            'origen_dano_garantia' => $campos['origen_dano_garantia'] ?? null,
+            'origen_dano_garantia' => $origen,
             'causal_baja' => $campos['causal_baja'] ?? null,
             'cantidad_danos' => $campos['cantidad_danos'] ?? null,
             'test_lenovo' => true,
             'serial_disco' => 'SD-'.substr($inventario->serial, 0, 8),
             'ticket_proveedor' => $campos['ticket_proveedor'] ?? null,
+            'partes_fru' => $campos['partes_fru'] ?? null,
             'piezas_solicitar' => $campos['piezas_solicitar'] ?? null,
+            'pieza_es_nueva' => $campos['pieza_es_nueva'] ?? null,
+            'subtipo_intervencion' => $campos['subtipo_intervencion'] ?? null,
+            'especificacion_repotenciacion' => $campos['especificacion_repotenciacion'] ?? null,
             'reparado_por' => $campos['reparado_por'] ?? null,
             'observaciones' => $campos['observaciones'] ?? 'Diagnóstico portátil completado.',
             'ubicacion_destino' => $destino,
@@ -378,15 +424,15 @@ class DemoOperativoSeeder extends Seeder
     }
 
     /**
-     * 29 CPUs cerradas por diagnóstico: 28 COMPLETADO + 1 BAJA_NO_SIRVE.
+     * 29 CPUs cerradas por diagnóstico: 27 COMPLETADO, 1 BAJA_NO_SIRVE por
+     * diagnóstico y 1 BAJA_NO_SIRVE por retiro directo (BAJA).
      */
     private function seedCpuCerrado(): void
     {
-        foreach ([['hoy', 4], ['semana', 11], ['mes', 13]] as [$bucket, $n]) {
+        foreach ([['hoy', 4], ['semana', 11], ['mes', 12]] as [$bucket, $n]) {
             foreach ($this->proximos($n) as $asset) {
                 $this->crearEquipo($asset, TipoGestionEnum::DIAGNOSTICO, [
                     'esta_funcional' => true,
-                    'es_obsoleta' => false,
                     'requiere_soplado_o_pasta' => false,
                 ], EstadoEquipoEnum::COMPLETADO, UbicacionDestinoEnum::ALMACEN, $this->fecha($bucket));
             }
@@ -397,7 +443,19 @@ class DemoOperativoSeeder extends Seeder
                 $this->crearEquipo($asset, TipoGestionEnum::DIAGNOSTICO, [
                     'esta_funcional' => false,
                     'tiene_garantia' => false,
-                    'observaciones' => 'Tarjeta madre dañada y sin garantía vigente.',
+                    'motivo_baja' => 'Tarjeta madre dañada y sin garantía vigente.',
+                    'serial_disco' => 'SD-BAJA-'.substr($asset['serial'], -4),
+                ], EstadoEquipoEnum::BAJA_NO_SIRVE, UbicacionDestinoEnum::SALA_DE_BAJA, $this->fecha($bucket));
+            }
+        }
+
+        foreach ([['hoy', 1]] as [$bucket, $n]) {
+            foreach ($this->proximos($n) as $asset) {
+                $this->crearEquipo($asset, TipoGestionEnum::BAJA, [
+                    'esta_funcional' => true,
+                    'es_obsoleta' => true,
+                    'motivo_baja' => 'OBSOLETA',
+                    'serial_disco' => 'SD-OBS-'.substr($asset['serial'], -4),
                 ], EstadoEquipoEnum::BAJA_NO_SIRVE, UbicacionDestinoEnum::SALA_DE_BAJA, $this->fecha($bucket));
             }
         }
@@ -412,7 +470,6 @@ class DemoOperativoSeeder extends Seeder
             foreach ($this->proximos($n) as $asset) {
                 $this->crearPortatil($asset, [
                     'clasificacion' => ClasificacionPortatilEnum::GARANTIA,
-                    'origen_dano_garantia' => OrigenDanoGarantiaEnum::FABRICA,
                     'ticket_proveedor' => 'TICKET-DEMO-'.strtoupper(substr($asset['serial'], -4)),
                 ], EstadoEquipoEnum::PENDIENTE_GARANTIA, UbicacionDestinoEnum::SALA_DE_GARANTIA, $this->fecha($bucket));
             }
@@ -421,17 +478,20 @@ class DemoOperativoSeeder extends Seeder
         foreach ([['hoy', 1], ['mes', 1]] as [$bucket, $n]) {
             foreach ($this->proximos($n) as $asset) {
                 $this->crearPortatil($asset, [
-                    'clasificacion' => ClasificacionPortatilEnum::DANO_REPARABLE,
+                    'clasificacion' => ClasificacionPortatilEnum::NOVEDAD,
+                    'gravedad_novedad' => GravedadNovedadEnum::PRONUNCIADA,
                     'cantidad_danos' => 2,
                     'piezas_solicitar' => 'Pantalla 14" + teclado',
+                    'observaciones' => 'Novedad pronunciada: bisagra y pantalla dañadas.',
                 ], EstadoEquipoEnum::POR_REACONDICIONAR, UbicacionDestinoEnum::SALA_DE_GARANTIA, $this->fecha($bucket));
             }
         }
     }
 
     /**
-     * 18 laptops cerradas: alterna FUNCIONAL (COMPLETADO), cierre (INTERVENIDO)
-     * y BAJA (BAJA_NO_SIRVE).
+     * 18 laptops cerradas: alterna FUNCIONAL (COMPLETADO), cierre de garantía
+     * (INTERVENIDO), BAJA (BAJA_NO_SIRVE), intervención por cambio de pieza
+     * (INTERVENIDO) y repotenciación (REPOTENCIADO).
      */
     private function seedPortatilesCerrados(): void
     {
@@ -440,25 +500,39 @@ class DemoOperativoSeeder extends Seeder
 
         foreach ($plan as [$bucket, $n]) {
             foreach ($this->proximos($n) as $asset) {
-                $caso = $indice % 3;
+                $caso = $indice % 5;
 
-                if ($caso === 0) {
-                    $this->crearPortatil($asset, [
+                match ($caso) {
+                    0 => $this->crearPortatil($asset, [
                         'clasificacion' => ClasificacionPortatilEnum::FUNCIONAL,
-                    ], EstadoEquipoEnum::COMPLETADO, UbicacionDestinoEnum::ALMACEN, $this->fecha($bucket));
-                } elseif ($caso === 1) {
-                    $this->crearPortatil($asset, [
+                    ], EstadoEquipoEnum::COMPLETADO, UbicacionDestinoEnum::ALMACEN, $this->fecha($bucket)),
+
+                    1 => $this->crearPortatil($asset, [
                         'clasificacion' => ClasificacionPortatilEnum::GARANTIA,
-                        'origen_dano_garantia' => OrigenDanoGarantiaEnum::FABRICA,
                         'ticket_proveedor' => 'TICKET-DEMO-'.strtoupper(substr($asset['serial'], -4)),
                         'reparado_por' => 'Proveedor Lenovo',
-                    ], EstadoEquipoEnum::INTERVENIDO, UbicacionDestinoEnum::ALMACEN, $this->fecha($bucket));
-                } else {
-                    $this->crearPortatil($asset, [
+                    ], EstadoEquipoEnum::INTERVENIDO, UbicacionDestinoEnum::ALMACEN, $this->fecha($bucket)),
+
+                    2 => $this->crearPortatil($asset, [
                         'clasificacion' => ClasificacionPortatilEnum::BAJA,
                         'causal_baja' => CausalBajaEnum::OBSOLETO,
-                    ], EstadoEquipoEnum::BAJA_NO_SIRVE, UbicacionDestinoEnum::SALA_DE_BAJA, $this->fecha($bucket));
-                }
+                    ], EstadoEquipoEnum::BAJA_NO_SIRVE, UbicacionDestinoEnum::SALA_DE_BAJA, $this->fecha($bucket)),
+
+                    3 => $this->crearPortatil($asset, [
+                        'clasificacion' => ClasificacionPortatilEnum::INTERVENCION,
+                        'pieza_es_nueva' => true,
+                        'subtipo_intervencion' => SubtipoIntervencionEnum::CAMBIO_PIEZA,
+                        'piezas_solicitar' => 'Teclado Lenovo FRU',
+                    ], EstadoEquipoEnum::INTERVENIDO, UbicacionDestinoEnum::ALMACEN, $this->fecha($bucket)),
+
+                    default => $this->crearPortatil($asset, [
+                        'clasificacion' => ClasificacionPortatilEnum::INTERVENCION,
+                        'pieza_es_nueva' => true,
+                        'subtipo_intervencion' => SubtipoIntervencionEnum::REPOTENCIACION,
+                        'piezas_solicitar' => 'Memoria RAM 16GB + SSD 512GB',
+                        'especificacion_repotenciacion' => 'Capacidad final: 16GB RAM / 512GB SSD',
+                    ], EstadoEquipoEnum::REPOTENCIADO, UbicacionDestinoEnum::ALMACEN, $this->fecha($bucket)),
+                };
 
                 $indice++;
             }

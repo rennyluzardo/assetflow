@@ -2,7 +2,7 @@ import type { TipoGestion } from '@/constants/equipos'
 import { TIPO_GESTION_LABELS } from '@/constants/equipos'
 import { cn } from '@/lib/cn'
 
-const OPCIONES: TipoGestion[] = ['NOVEDAD', 'DIAGNOSTICO', 'INTERVENCION']
+const OPCIONES: TipoGestion[] = ['NOVEDAD', 'DIAGNOSTICO', 'INTERVENCION', 'BAJA']
 
 interface TipoGestionStepProps {
   seleccion: TipoGestion | null

@@ -4,19 +4,19 @@ import type { EstadoEquipo, UbicacionDestino } from '@/constants/equipos'
  * Espejo tipado de los enums del backend del módulo de Portátiles:
  *  - ClasificacionPortatilEnum
  *  - GravedadNovedadEnum
- *  - OrigenDanoGarantiaEnum
  *  - CausalBajaEnum
+ *  - SubtipoIntervencionEnum
  */
 
-export const CLASIFICACIONES = ['FUNCIONAL', 'NOVEDAD', 'GARANTIA', 'DANO_REPARABLE', 'BAJA'] as const
+export const CLASIFICACIONES = ['FUNCIONAL', 'NOVEDAD', 'GARANTIA', 'BAJA', 'INTERVENCION'] as const
 export type ClasificacionPortatil = (typeof CLASIFICACIONES)[number]
 
 export const CLASIFICACION_LABELS: Record<ClasificacionPortatil, string> = {
   FUNCIONAL: 'Funcional',
   NOVEDAD: 'Novedad',
   GARANTIA: 'Garantía',
-  DANO_REPARABLE: 'Daño reparable',
   BAJA: 'Baja',
+  INTERVENCION: 'Intervención',
 }
 
 export const GRAVEDADES = ['MINIMA', 'PRONUNCIADA'] as const
@@ -27,12 +27,12 @@ export const GRAVEDAD_LABELS: Record<GravedadNovedad, string> = {
   PRONUNCIADA: 'Pronunciada',
 }
 
-export const ORIGENES = ['FABRICA', 'INDUCIDO'] as const
-export type OrigenDanoGarantia = (typeof ORIGENES)[number]
+export const SUBTIPOS_INTERVENCION = ['CAMBIO_PIEZA', 'REPOTENCIACION'] as const
+export type SubtipoIntervencion = (typeof SUBTIPOS_INTERVENCION)[number]
 
-export const ORIGEN_LABELS: Record<OrigenDanoGarantia, string> = {
-  FABRICA: 'Fábrica',
-  INDUCIDO: 'Inducido',
+export const SUBTIPO_LABELS: Record<SubtipoIntervencion, string> = {
+  CAMBIO_PIEZA: 'Cambio de pieza',
+  REPOTENCIACION: 'Repotenciación',
 }
 
 export const CAUSALES = ['OBSOLETO', 'DANO_TOTAL'] as const
@@ -79,16 +79,18 @@ export interface RegistrarPortatilPayload {
   placa_id: string
   clasificacion: ClasificacionPortatil
   test_lenovo: boolean
-  serial_disco: string
+  serial_disco?: string
   gravedad_novedad?: GravedadNovedad
-  origen_dano_garantia?: OrigenDanoGarantia
   causal_baja?: CausalBaja
   cantidad_danos?: number
   ticket_proveedor?: string
   partes_fru?: string
   piezas_solicitar?: string
-  ubicacion_destino: UbicacionDestino
+  pieza_es_nueva?: boolean
+  subtipo_intervencion?: SubtipoIntervencion
+  especificacion_repotenciacion?: string
   observaciones?: string
+  ubicacion_destino: UbicacionDestino
 }
 
 /** Cuerpo de `PATCH /api/portatiles/{id}/cerrar`. */
@@ -96,4 +98,10 @@ export interface CerrarPortatilPayload {
   ubicacion_destino: UbicacionDestino
   reparado_por: string
   foto_evidencia?: string
+}
+
+/** Fila dinámica de un daño en Novedad Pronunciada: pieza + código FRU. */
+export interface DanoRow {
+  pieza: string
+  fru: string
 }

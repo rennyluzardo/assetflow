@@ -25,6 +25,20 @@ final class DashboardService
     /** Meta diaria base: 10 intervenciones por técnico. */
     private const META_DIARIA = 10;
 
+    /** SLA operativo: máx. 4 días entre `fecha_cargue` y `fecha_intervencion`. */
+    private const SLA_DIAS = 4;
+
+    /**
+     * Escalera de bonos por cumplimiento mensual de la meta de productividad.
+     *
+     * @var array<int, int> Umbral mínimo de % -> % de bono.
+     */
+    private const BONOS = [
+        87 => 15,
+        85 => 10,
+        83 => 5,
+    ];
+
     /** Estados intermedios que mantienen el flujo abierto (cuellos de botella). */
     private const ESTADOS_EN_TRANSITO = [
         EstadoEquipoEnum::POR_SOPLAR,
@@ -38,7 +52,7 @@ final class DashboardService
     public function metricas(User $user, DashboardRequest $request): array
     {
         $periodo = $request->periodo();
-        [$inicio, $fin, $dias] = $this->rango($periodo);
+        [$inicio, $fin, $dias] = $this->rango($periodo, $request->fechaInicio(), $request->fechaFin());
 
         $base = $this->baseQuery($user, $request);
         $intervenciones = $this->intervencionesQuery($user, $request, $inicio, $fin);
@@ -49,6 +63,7 @@ final class DashboardService
             'hasta' => $fin->toIso8601String(),
             'dias' => $dias,
             'meta_diaria' => self::META_DIARIA,
+            'sla_dias' => self::SLA_DIAS,
             'solo_propio' => $this->esSoloPropio($user),
             'kpis' => [
                 'total_inventario' => (clone $base)->count(),
@@ -58,6 +73,7 @@ final class DashboardService
             ],
             'conteo_por_estado' => $this->conteoPorEstado($base),
             'productividad' => [
+                'global' => $this->productividadGlobal($intervenciones, $dias),
                 'por_analista' => $this->productividadPorAnalista($intervenciones, $dias),
                 'por_estacion' => $this->productividadPorEstacion($intervenciones),
             ],
@@ -74,7 +90,7 @@ final class DashboardService
         yield "\xEF\xBB\xBF".$this->filaCsv($this->cabeceras())."\r\n";
 
         $periodo = $request->periodo();
-        [$inicio, $fin] = $this->rango($periodo);
+        [$inicio, $fin] = $this->rango($periodo, $request->fechaInicio(), $request->fechaFin());
 
         $query = $this->intervencionesQuery($user, $request, $inicio, $fin)->orderBy('id');
 
@@ -114,6 +130,10 @@ final class DashboardService
             $query->where('estado_actual', $estado);
         }
 
+        if ($tipo = $request->validated('tipo_equipo')) {
+            $query->whereRaw('LOWER(descripcion) = ?', [strtolower($tipo)]);
+        }
+
         return $query;
     }
 
@@ -141,10 +161,22 @@ final class DashboardService
     }
 
     /**
+     * Rango temporal de las intervenciones. Cuando llegan `fecha_inicio` y
+     * `fecha_fin`, tienen prioridad sobre el selector rápido de `periodo` y
+     * acotan el filtro entre `inicio 00:00:00` y `fin 23:59:59`.
+     *
      * @return array{0: Carbon, 1: Carbon, 2: int}
      */
-    private function rango(string $periodo): array
+    private function rango(string $periodo, ?Carbon $inicioExplicito, ?Carbon $finExplicito): array
     {
+        if ($inicioExplicito && $finExplicito) {
+            $inicio = $inicioExplicito->copy()->startOfDay();
+            $fin = $finExplicito->copy()->endOfDay();
+            $dias = max(1, (int) $inicio->diffInDays($fin->copy()->startOfDay()) + 1);
+
+            return [$inicio, $fin, $dias];
+        }
+
         $fin = now();
 
         $inicio = match ($periodo) {
@@ -183,11 +215,32 @@ final class DashboardService
     }
 
     /**
-     * @return list<array{analista_id: int, nombre: string, total: int, meta: int}>
+     * Productividad agregada de todo el periodo (todos los analistas juntos).
+     *
+     * @return array{total: int, meta: int, porcentaje: float, bono: int, sla: array{dentro: int, total: int, porcentaje: float}}
+     */
+    private function productividadGlobal(Builder $intervenciones, int $dias): array
+    {
+        $total = (clone $intervenciones)->count();
+        $meta = self::META_DIARIA * $dias;
+        $porcentaje = $meta > 0 ? round($total / $meta * 100, 2) : 0.0;
+
+        return [
+            'total' => $total,
+            'meta' => $meta,
+            'porcentaje' => $porcentaje,
+            'bono' => $this->bonoPorcentaje($porcentaje),
+            'sla' => $this->cumplimientoSla($intervenciones),
+        ];
+    }
+
+    /**
+     * @return list<array{analista_id: int, nombre: string, total: int, meta: int, porcentaje: float, bono: int, sla: array{dentro: int, total: int, porcentaje: float}}>
      */
     private function productividadPorAnalista(Builder $intervenciones, int $dias): array
     {
         $meta = self::META_DIARIA * $dias;
+        $slaPorAnalista = $this->slaPorAnalista($intervenciones);
 
         return (clone $intervenciones)
             ->whereNotNull('analista_intervencion')
@@ -196,13 +249,107 @@ final class DashboardService
             ->groupBy('inventario_general.analista_intervencion', 'users.name')
             ->orderByDesc('total')
             ->get()
-            ->map(fn (InventarioGeneral $fila) => [
-                'analista_id' => (int) $fila->analista_id,
-                'nombre' => $fila->nombre,
-                'total' => (int) $fila->total,
-                'meta' => $meta,
-            ])
+            ->map(function (InventarioGeneral $fila) use ($meta, $slaPorAnalista): array {
+                $analistaId = (int) $fila->analista_id;
+                $total = (int) $fila->total;
+                $porcentaje = $meta > 0 ? round($total / $meta * 100, 2) : 0.0;
+                $sla = $slaPorAnalista[$analistaId] ?? ['dentro' => 0, 'total' => 0];
+
+                return [
+                    'analista_id' => $analistaId,
+                    'nombre' => $fila->nombre,
+                    'total' => $total,
+                    'meta' => $meta,
+                    'porcentaje' => $porcentaje,
+                    'bono' => $this->bonoPorcentaje($porcentaje),
+                    'sla' => [
+                        'dentro' => $sla['dentro'],
+                        'total' => $sla['total'],
+                        'porcentaje' => $sla['total'] > 0
+                            ? round($sla['dentro'] / $sla['total'] * 100, 2)
+                            : 100.0,
+                    ],
+                ];
+            })
             ->all();
+    }
+
+    /**
+     * % de bono según la escalera de bonos para un % de cumplimiento dado.
+     */
+    private function bonoPorcentaje(float $porcentaje): int
+    {
+        foreach (self::BONOS as $umbral => $bono) {
+            if ($porcentaje >= $umbral) {
+                return $bono;
+            }
+        }
+
+        return 0;
+    }
+
+    /**
+     * Cumplimiento del SLA (fecha_cargue -> fecha_intervencion <= 4 días) sobre
+     * el conjunto completo de intervenciones del periodo.
+     *
+     * @return array{dentro: int, total: int, porcentaje: float}
+     */
+    private function cumplimientoSla(Builder $intervenciones): array
+    {
+        $filas = (clone $intervenciones)->whereNotNull('fecha_cargue')
+            ->get(['fecha_cargue', 'fecha_intervencion']);
+
+        $dentro = 0;
+        $total = $filas->count();
+
+        foreach ($filas as $fila) {
+            if ($this->cumpleSla($fila)) {
+                $dentro++;
+            }
+        }
+
+        return [
+            'dentro' => $dentro,
+            'total' => $total,
+            'porcentaje' => $total > 0 ? round($dentro / $total * 100, 2) : 100.0,
+        ];
+    }
+
+    /**
+     * @return array<int, array{dentro: int, total: int}>
+     */
+    private function slaPorAnalista(Builder $intervenciones): array
+    {
+        $filas = (clone $intervenciones)
+            ->whereNotNull('analista_intervencion')
+            ->whereNotNull('fecha_cargue')
+            ->get(['analista_intervencion', 'fecha_cargue', 'fecha_intervencion']);
+
+        $resumen = [];
+
+        foreach ($filas as $fila) {
+            $id = (int) $fila->analista_intervencion;
+            $resumen[$id] ??= ['dentro' => 0, 'total' => 0];
+            $resumen[$id]['total']++;
+
+            if ($this->cumpleSla($fila)) {
+                $resumen[$id]['dentro']++;
+            }
+        }
+
+        return $resumen;
+    }
+
+    private function cumpleSla(InventarioGeneral $fila): bool
+    {
+        $cargue = $fila->fecha_cargue;
+        $intervencion = $fila->fecha_intervencion;
+
+        if ($cargue === null || $intervencion === null || $intervencion->lt($cargue)) {
+            return false;
+        }
+
+        return $cargue->diffInDays($intervencion) <= self::SLA_DIAS;
     }
 
     /**

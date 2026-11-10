@@ -1,5 +1,6 @@
 <?php
 
+use App\Enums\EstadoEquipoEnum;
 use App\Models\InventarioGeneral;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -7,6 +8,7 @@ use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\Storage;
 use Laravel\Sanctum\Sanctum;
 use Spatie\Permission\Models\Permission;
+use Spatie\Permission\Models\Role;
 use Spatie\Permission\PermissionRegistrar;
 
 uses(RefreshDatabase::class);
@@ -16,6 +18,7 @@ beforeEach(function () {
         Permission::findOrCreate($permiso);
     }
 
+    Role::findOrCreate('admin');
     app(PermissionRegistrar::class)->forgetCachedPermissions();
 
     $this->analista = User::factory()->create([
@@ -64,12 +67,12 @@ it('resuelve la matriz de clasificación de laptops', function (
     ]);
 })->with([
     'Funcional -> Completado en Almacén' => ['AF-LAP-FUNC', ['clasificacion' => 'FUNCIONAL'], 'ALMACEN', 'COMPLETADO', true],
-    'Novedad mínima -> Completado en Almacén' => ['AF-LAP-MIN', ['clasificacion' => 'NOVEDAD', 'gravedad_novedad' => 'MINIMA'], 'ALMACEN', 'COMPLETADO', true],
-    'Novedad pronunciada -> Por reacondicionar' => ['AF-LAP-PRON', ['clasificacion' => 'NOVEDAD', 'gravedad_novedad' => 'PRONUNCIADA', 'cantidad_danos' => 2, 'piezas_solicitar' => 'Bisagra inferior'], 'SALA_DE_GARANTIA', 'POR_REACONDICIONAR', false],
-    'Garantía de fábrica -> Pendiente garantía' => ['AF-LAP-FAB', ['clasificacion' => 'GARANTIA', 'origen_dano_garantia' => 'FABRICA', 'ticket_proveedor' => 'TK-777'], 'SALA_DE_GARANTIA', 'PENDIENTE_GARANTIA', false],
-    'Garantía inducida -> Por reacondicionar' => ['AF-LAP-IND', ['clasificacion' => 'GARANTIA', 'origen_dano_garantia' => 'INDUCIDO', 'piezas_solicitar' => 'Pantalla 14"'], 'SALA_DE_GARANTIA', 'POR_REACONDICIONAR', false],
-    'Daño reparable -> Por reacondicionar' => ['AF-LAP-DANO', ['clasificacion' => 'DANO_REPARABLE', 'cantidad_danos' => 3, 'piezas_solicitar' => 'Teclado', 'partes_fru' => 'FRU-KBD'], 'SALA_DE_GARANTIA', 'POR_REACONDICIONAR', false],
+    'Novedad mínima -> Completado en Almacén' => ['AF-LAP-MIN', ['clasificacion' => 'NOVEDAD', 'gravedad_novedad' => 'MINIMA', 'observaciones' => 'Novedad mínima.'], 'ALMACEN', 'COMPLETADO', true],
+    'Novedad pronunciada -> Por reacondicionar' => ['AF-LAP-PRON', ['clasificacion' => 'NOVEDAD', 'gravedad_novedad' => 'PRONUNCIADA', 'cantidad_danos' => 2, 'piezas_solicitar' => 'Bisagra inferior', 'observaciones' => 'Novedad pronunciada.'], 'SALA_DE_GARANTIA', 'POR_REACONDICIONAR', false],
+    'Garantía de fábrica -> Pendiente garantía' => ['AF-LAP-FAB', ['clasificacion' => 'GARANTIA', 'ticket_proveedor' => 'TK-777', 'piezas_solicitar' => 'Board'], 'SALA_DE_GARANTIA', 'PENDIENTE_GARANTIA', false],
     'Baja -> Baja no sirve' => ['AF-LAP-BAJA', ['clasificacion' => 'BAJA', 'causal_baja' => 'OBSOLETO'], 'SALA_DE_BAJA', 'BAJA_NO_SIRVE', true],
+    'Intervención cambio de pieza -> Intervenido' => ['AF-LAP-CAMBIO', ['clasificacion' => 'INTERVENCION', 'pieza_es_nueva' => true, 'subtipo_intervencion' => 'CAMBIO_PIEZA', 'piezas_solicitar' => 'Teclado'], 'ALMACEN', 'INTERVENIDO', true],
+    'Intervención repotenciación -> Repotenciado' => ['AF-LAP-REPOT', ['clasificacion' => 'INTERVENCION', 'pieza_es_nueva' => true, 'subtipo_intervencion' => 'REPOTENCIACION', 'piezas_solicitar' => 'RAM 16GB', 'especificacion_repotenciacion' => '16GB RAM'], 'ALMACEN', 'REPOTENCIADO', true],
 ]);
 
 it('rechaza con 422 una ubicación de destino ilegal para la rama', function (array $payload) {
@@ -88,46 +91,46 @@ it('rechaza con 422 una ubicación de destino ilegal para la rama', function (ar
 })->with([
     'funcional a Sala de Baja' => [['clasificacion' => 'FUNCIONAL', 'ubicacion_destino' => 'SALA_DE_BAJA']],
     'baja a Almacén' => [['clasificacion' => 'BAJA', 'causal_baja' => 'OBSOLETO', 'ubicacion_destino' => 'ALMACEN']],
-    'garantía de fábrica a Sala de Baja' => [['clasificacion' => 'GARANTIA', 'origen_dano_garantia' => 'FABRICA', 'ticket_proveedor' => 'TK-1', 'ubicacion_destino' => 'SALA_DE_BAJA']],
+    'garantía de fábrica a Sala de Baja' => [['clasificacion' => 'GARANTIA', 'ticket_proveedor' => 'TK-1', 'piezas_solicitar' => 'Board', 'ubicacion_destino' => 'SALA_DE_BAJA']],
+    'intervención a Sala de Garantía' => [['clasificacion' => 'INTERVENCION', 'pieza_es_nueva' => true, 'subtipo_intervencion' => 'CAMBIO_PIEZA', 'piezas_solicitar' => 'Teclado', 'ubicacion_destino' => 'SALA_DE_GARANTIA']],
 ]);
 
-it('rechaza una novedad pronunciada con un solo daño', function () {
+it('exige observaciones en NOVEDAD', function () {
     InventarioGeneral::factory()->create([
-        'placa_id' => 'AF-LAP-PD1',
+        'placa_id' => 'AF-LAP-NOV-OBS',
         'usuario_cargue' => $this->analista->id,
     ]);
 
     $this->postJson('/api/portatiles', [
-        'placa_id' => 'AF-LAP-PD1',
+        'placa_id' => 'AF-LAP-NOV-OBS',
+        'clasificacion' => 'NOVEDAD',
+        'gravedad_novedad' => 'MINIMA',
+        'test_lenovo' => true,
+        'serial_disco' => 'DISCO-1',
+        'ubicacion_destino' => 'ALMACEN',
+    ])->assertStatus(422)->assertJsonValidationErrors('observaciones');
+});
+
+it('rechaza una novedad pronunciada fuera del rango 1..4 de daños', function (int $cantidad) {
+    InventarioGeneral::factory()->create([
+        'placa_id' => 'AF-LAP-PD',
+        'usuario_cargue' => $this->analista->id,
+    ]);
+
+    $this->postJson('/api/portatiles', [
+        'placa_id' => 'AF-LAP-PD',
         'clasificacion' => 'NOVEDAD',
         'gravedad_novedad' => 'PRONUNCIADA',
-        'cantidad_danos' => 1,
+        'cantidad_danos' => $cantidad,
         'piezas_solicitar' => 'Bisagra',
+        'observaciones' => 'Novedad pronunciada.',
         'test_lenovo' => true,
         'serial_disco' => 'DISCO-1',
         'ubicacion_destino' => 'SALA_DE_GARANTIA',
     ])->assertStatus(422)->assertJsonValidationErrors('cantidad_danos');
-});
+})->with([0, 5]);
 
-it('rechaza un daño reparable con más de tres daños', function () {
-    InventarioGeneral::factory()->create([
-        'placa_id' => 'AF-LAP-PD3',
-        'usuario_cargue' => $this->analista->id,
-    ]);
-
-    $this->postJson('/api/portatiles', [
-        'placa_id' => 'AF-LAP-PD3',
-        'clasificacion' => 'DANO_REPARABLE',
-        'cantidad_danos' => 4,
-        'piezas_solicitar' => 'Teclado',
-        'partes_fru' => 'FRU-KBD',
-        'test_lenovo' => true,
-        'serial_disco' => 'DISCO-1',
-        'ubicacion_destino' => 'SALA_DE_GARANTIA',
-    ])->assertStatus(422)->assertJsonValidationErrors('cantidad_danos');
-});
-
-it('acepta un daño reparable sin código FRU de partes (partes_fru opcional)', function () {
+it('acepta una novedad pronunciada sin código FRU (partes_fru opcional)', function () {
     InventarioGeneral::factory()->create([
         'placa_id' => 'AF-LAP-SINFRU',
         'usuario_cargue' => $this->analista->id,
@@ -135,9 +138,11 @@ it('acepta un daño reparable sin código FRU de partes (partes_fru opcional)', 
 
     $respuesta = $this->postJson('/api/portatiles', [
         'placa_id' => 'AF-LAP-SINFRU',
-        'clasificacion' => 'DANO_REPARABLE',
+        'clasificacion' => 'NOVEDAD',
+        'gravedad_novedad' => 'PRONUNCIADA',
         'cantidad_danos' => 2,
         'piezas_solicitar' => 'Teclado y bisagra',
+        'observaciones' => 'Novedad pronunciada sin FRU.',
         'test_lenovo' => true,
         'serial_disco' => 'DISCO-1',
         'ubicacion_destino' => 'SALA_DE_GARANTIA',
@@ -145,6 +150,75 @@ it('acepta un daño reparable sin código FRU de partes (partes_fru opcional)', 
 
     expect($respuesta->json('data.estado'))->toBe('POR_REACONDICIONAR');
     expect($respuesta->json('data.partes_fru'))->toBeNull();
+});
+
+it('fija automáticamente el origen de garantía en FABRICA', function () {
+    InventarioGeneral::factory()->create([
+        'placa_id' => 'AF-LAP-FAB-ORIGEN',
+        'usuario_cargue' => $this->analista->id,
+    ]);
+
+    $this->postJson('/api/portatiles', [
+        'placa_id' => 'AF-LAP-FAB-ORIGEN',
+        'clasificacion' => 'GARANTIA',
+        'ticket_proveedor' => 'TK-1',
+        'piezas_solicitar' => 'Board',
+        'test_lenovo' => true,
+        'ubicacion_destino' => 'SALA_DE_GARANTIA',
+    ])->assertCreated();
+
+    $this->assertDatabaseHas('garantia_portatil', [
+        'placa_id' => 'AF-LAP-FAB-ORIGEN',
+        'origen_dano_garantia' => 'FABRICA',
+    ]);
+});
+
+it('exige piezas_solicitar en la garantía de fábrica', function () {
+    InventarioGeneral::factory()->create([
+        'placa_id' => 'AF-LAP-GAR-PIEZA',
+        'usuario_cargue' => $this->analista->id,
+    ]);
+
+    $this->postJson('/api/portatiles', [
+        'placa_id' => 'AF-LAP-GAR-PIEZA',
+        'clasificacion' => 'GARANTIA',
+        'ticket_proveedor' => 'TK-1',
+        'test_lenovo' => true,
+        'serial_disco' => 'DISCO-1',
+        'ubicacion_destino' => 'SALA_DE_GARANTIA',
+    ])->assertStatus(422)->assertJsonValidationErrors('piezas_solicitar');
+});
+
+it('exige serial_disco en BAJA', function () {
+    InventarioGeneral::factory()->create([
+        'placa_id' => 'AF-LAP-BAJA-SD',
+        'usuario_cargue' => $this->analista->id,
+    ]);
+
+    $this->postJson('/api/portatiles', [
+        'placa_id' => 'AF-LAP-BAJA-SD',
+        'clasificacion' => 'BAJA',
+        'causal_baja' => 'DANO_TOTAL',
+        'test_lenovo' => true,
+        'ubicacion_destino' => 'SALA_DE_BAJA',
+    ])->assertStatus(422)->assertJsonValidationErrors('serial_disco');
+});
+
+it('rechaza una repotenciación sin especificación final', function () {
+    InventarioGeneral::factory()->create([
+        'placa_id' => 'AF-LAP-REPOT-ESP',
+        'usuario_cargue' => $this->analista->id,
+    ]);
+
+    $this->postJson('/api/portatiles', [
+        'placa_id' => 'AF-LAP-REPOT-ESP',
+        'clasificacion' => 'INTERVENCION',
+        'pieza_es_nueva' => true,
+        'subtipo_intervencion' => 'REPOTENCIACION',
+        'piezas_solicitar' => 'RAM 16GB',
+        'test_lenovo' => true,
+        'ubicacion_destino' => 'ALMACEN',
+    ])->assertStatus(422)->assertJsonValidationErrors('especificacion_repotenciacion');
 });
 
 it('cierra el registro único abierto hacia Almacén General', function (
@@ -185,8 +259,8 @@ it('cierra el registro único abierto hacia Almacén General', function (
     // Registro único: el cierre muta el mismo registro, no crea uno nuevo.
     $this->assertDatabaseCount('garantia_portatil', 1);
 })->with([
-    'desde pendiente garantía' => ['GARANTIA', ['origen_dano_garantia' => 'FABRICA', 'ticket_proveedor' => 'TK-1']],
-    'desde por reacondicionar' => ['DANO_REPARABLE', ['cantidad_danos' => 2, 'piezas_solicitar' => 'Teclado', 'partes_fru' => 'FRU-KBD']],
+    'desde pendiente garantía' => ['GARANTIA', ['ticket_proveedor' => 'TK-1', 'piezas_solicitar' => 'Board']],
+    'desde por reacondicionar' => ['NOVEDAD', ['gravedad_novedad' => 'PRONUNCIADA', 'cantidad_danos' => 2, 'piezas_solicitar' => 'Teclado', 'observaciones' => 'Novedad pronunciada.']],
 ]);
 
 it('rechaza un cierre con destino distinto de Almacén', function () {
@@ -198,8 +272,8 @@ it('rechaza un cierre con destino distinto de Almacén', function () {
     $creado = $this->postJson('/api/portatiles', [
         'placa_id' => 'AF-LAP-C-422',
         'clasificacion' => 'GARANTIA',
-        'origen_dano_garantia' => 'FABRICA',
         'ticket_proveedor' => 'TK-1',
+        'piezas_solicitar' => 'Board',
         'test_lenovo' => true,
         'serial_disco' => 'DISCO-1',
         'ubicacion_destino' => 'SALA_DE_GARANTIA',
@@ -242,8 +316,8 @@ it('busca el portátil y devuelve su registro único abierto', function () {
     $this->postJson('/api/portatiles', [
         'placa_id' => 'AF-LAP-BUSCAR',
         'clasificacion' => 'GARANTIA',
-        'origen_dano_garantia' => 'FABRICA',
         'ticket_proveedor' => 'TK-1',
+        'piezas_solicitar' => 'Board',
         'test_lenovo' => true,
         'serial_disco' => 'DISCO-1',
         'ubicacion_destino' => 'SALA_DE_GARANTIA',
@@ -306,4 +380,40 @@ it('lista la bitácora paginada y filtra por clasificación', function () {
     $this->getJson('/api/portatiles?clasificacion=FUNCIONAL')
         ->assertOk()
         ->assertJsonPath('meta.total', 0);
+});
+
+it('bloquea una nueva gestión sobre un portátil ya intervenido sin rol admin', function () {
+    InventarioGeneral::factory()->create([
+        'placa_id' => 'AF-LAP-REINT',
+        'intervenido' => true,
+        'estado_actual' => EstadoEquipoEnum::COMPLETADO,
+        'usuario_cargue' => $this->analista->id,
+    ]);
+
+    $this->postJson('/api/portatiles', [
+        'placa_id' => 'AF-LAP-REINT',
+        'clasificacion' => 'FUNCIONAL',
+        'test_lenovo' => true,
+        'serial_disco' => 'DISCO-1',
+        'ubicacion_destino' => 'ALMACEN',
+    ])->assertStatus(422)->assertJsonValidationErrors('placa_id');
+});
+
+it('permite una nueva gestión sobre un portátil intervenido con rol admin', function () {
+    InventarioGeneral::factory()->create([
+        'placa_id' => 'AF-LAP-REINT-ADMIN',
+        'intervenido' => true,
+        'estado_actual' => EstadoEquipoEnum::COMPLETADO,
+        'usuario_cargue' => $this->analista->id,
+    ]);
+
+    $this->analista->assignRole('admin');
+
+    $this->postJson('/api/portatiles', [
+        'placa_id' => 'AF-LAP-REINT-ADMIN',
+        'clasificacion' => 'FUNCIONAL',
+        'test_lenovo' => true,
+        'serial_disco' => 'DISCO-1',
+        'ubicacion_destino' => 'ALMACEN',
+    ])->assertCreated();
 });

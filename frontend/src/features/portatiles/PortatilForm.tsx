@@ -6,16 +6,16 @@ import {
   CLASIFICACION_LABELS,
   GRAVEDADES,
   GRAVEDAD_LABELS,
-  ORIGENES,
-  ORIGEN_LABELS,
+  SUBTIPOS_INTERVENCION,
+  SUBTIPO_LABELS,
 } from './types'
 import { StatusBadge } from '@/components/StatusBadge'
 import { UBICACION_LABELS } from '@/constants/equipos'
 import { cn } from '@/lib/cn'
 import { ApiError } from '@/lib/api'
 import { DestinoStep } from '@/features/equipos/components/DestinoStep'
-import { usePortatilForm } from './usePortatilForm'
-import { CampoNumero, CampoTexto, OpcionGroup, ToggleCampo } from './components/campos'
+import { MAX_DANOS, usePortatilForm } from './usePortatilForm'
+import { CampoTexto, OpcionGroup, ToggleCampo } from './components/campos'
 
 interface PortatilFormProps {
   portatil: PortatilBusqueda
@@ -59,15 +59,17 @@ export function PortatilForm({ portatil, onGuardado }: PortatilFormProps) {
             onChange={form.setTestLenovo}
             disabled={form.guardando}
           />
-          <CampoTexto
-            label="Serial del disco"
-            mono
-            required
-            value={form.serialDisco}
-            onChange={form.setSerialDisco}
-            placeholder="Serial del disco SSD/HDD"
-            disabled={form.guardando}
-          />
+          {form.clasificacion === 'BAJA' && (
+            <CampoTexto
+              label="Serial del disco"
+              mono
+              required
+              value={form.serialDisco}
+              onChange={form.setSerialDisco}
+              placeholder="Serial del disco SSD/HDD"
+              disabled={form.guardando}
+            />
+          )}
         </div>
       </section>
 
@@ -80,87 +82,98 @@ export function PortatilForm({ portatil, onGuardado }: PortatilFormProps) {
             onSeleccionar={form.setGravedadNovedad}
             deshabilitado={form.guardando}
           />
+
+          <CampoTexto
+            label="Observaciones de la novedad"
+            required
+            value={form.observaciones}
+            onChange={form.setObservaciones}
+            placeholder="Comentarios de la novedad detectada"
+            disabled={form.guardando}
+          />
+
           {form.gravedadNovedad === 'PRONUNCIADA' && (
-            <>
-              <CampoNumero
-                label="Cantidad de daños"
-                value={form.cantidadDanos}
-                onChange={form.setCantidadDanos}
-                hint="Una novedad pronunciada exige más de 1 daño."
-                disabled={form.guardando}
-              />
-              <CampoTexto
-                label="Piezas a solicitar"
-                required
-                value={form.piezasSolicitar}
-                onChange={form.setPiezasSolicitar}
-                placeholder="Piezas o componentes a solicitar"
-                disabled={form.guardando}
-              />
-            </>
+            <section className="space-y-3">
+              <h3 className="text-sm font-medium text-slate-700">Componentes dañados</h3>
+              {form.danos.map((dano, index) => (
+                <div
+                  key={index}
+                  className="grid grid-cols-1 items-end gap-2 sm:grid-cols-[1fr_1fr_auto]"
+                >
+                  <div>
+                    <label className="mb-1.5 block text-sm font-medium text-slate-700">
+                      Nombre de la pieza <span className="text-estado-terracota-ink"> *</span>
+                    </label>
+                    <input
+                      type="text"
+                      value={dano.pieza}
+                      onChange={(event) => form.actualizarDano(index, 'pieza', event.target.value)}
+                      placeholder="Nombre de la pieza"
+                      disabled={form.guardando}
+                      className="w-full rounded-md border border-line bg-surface px-3 py-2 text-sm text-slate-900 outline-none transition-colors focus:border-slate-400"
+                    />
+                  </div>
+                  <div>
+                    <label className="mb-1.5 block text-sm font-medium text-slate-700">
+                      Código FRU <span className="font-normal text-slate-400">(opcional)</span>
+                    </label>
+                    <input
+                      type="text"
+                      value={dano.fru}
+                      onChange={(event) => form.actualizarDano(index, 'fru', event.target.value)}
+                      placeholder="Código FRU"
+                      disabled={form.guardando}
+                      className="w-full rounded-md border border-line bg-surface px-3 py-2 font-mono text-sm text-slate-900 outline-none transition-colors focus:border-slate-400"
+                    />
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => form.eliminarDano(index)}
+                    disabled={form.danos.length <= 1 || form.guardando}
+                    aria-label={`Eliminar pieza ${index + 1}`}
+                    className="rounded-md border border-line px-3 py-2 text-sm text-slate-500 transition-colors hover:text-estado-terracota-ink disabled:cursor-not-allowed disabled:opacity-40"
+                  >
+                    Quitar
+                  </button>
+                </div>
+              ))}
+              <button
+                type="button"
+                onClick={form.agregarDano}
+                disabled={form.danos.length >= MAX_DANOS || form.guardando}
+                className="rounded-md border border-dashed border-line px-4 py-2 text-sm font-medium text-slate-600 transition-colors hover:border-slate-300 hover:text-slate-900 disabled:cursor-not-allowed disabled:opacity-40"
+              >
+                {form.danos.length >= MAX_DANOS ? 'Límite de 4 daños alcanzado' : '+ Agregar pieza'}
+              </button>
+            </section>
           )}
         </>
       )}
 
       {form.clasificacion === 'GARANTIA' && (
-        <>
-          <OpcionGroup
-            titulo="Origen del daño en garantía"
-            opciones={ORIGENES.map((v) => ({ value: v, label: ORIGEN_LABELS[v] }))}
-            seleccion={form.origenDanoGarantia}
-            onSeleccionar={form.setOrigenDanoGarantia}
-            deshabilitado={form.guardando}
-          />
-          {form.origenDanoGarantia === 'FABRICA' && (
-            <CampoTexto
-              label="Ticket del proveedor"
-              mono
-              required
-              value={form.ticketProveedor}
-              onChange={form.setTicketProveedor}
-              placeholder="Número de ticket del proveedor"
-              disabled={form.guardando}
-            />
-          )}
-          {form.origenDanoGarantia === 'INDUCIDO' && (
-            <CampoTexto
-              label="Piezas a solicitar"
-              required
-              value={form.piezasSolicitar}
-              onChange={form.setPiezasSolicitar}
-              placeholder="Piezas o componentes a comprar"
-              disabled={form.guardando}
-            />
-          )}
-        </>
-      )}
-
-      {form.clasificacion === 'DANO_REPARABLE' && (
-        <>
-          <CampoNumero
-            label="Cantidad de daños"
-            value={form.cantidadDanos}
-            onChange={form.setCantidadDanos}
-            hint="Máximo 3 daños reparables."
-            disabled={form.guardando}
-          />
+        <section className="space-y-4">
+          <h3 className="text-sm font-medium text-slate-700">INFORMACIÓN DE LA GARANTÍA</h3>
+          <div className="rounded-md border border-estado-ambar-line bg-estado-ambar px-4 py-3 text-sm text-estado-ambar-ink">
+            Garantía exclusivamente de fábrica.
+          </div>
           <CampoTexto
-            label="Partes FRU"
+            label="N° DE TICKET"
             mono
-            value={form.partesFru}
-            onChange={form.setPartesFru}
-            placeholder="Códigos de partes FRU (opcional)"
+            required
+            value={form.ticketProveedor}
+            onChange={form.setTicketProveedor}
+            placeholder="Número de ticket del proveedor"
             disabled={form.guardando}
           />
           <CampoTexto
-            label="Piezas a solicitar"
+            label="NOMBRE DE LA PIEZA"
             required
             value={form.piezasSolicitar}
             onChange={form.setPiezasSolicitar}
-            placeholder="Piezas o componentes a solicitar"
+            placeholder="Pieza sobre la que aplica la garantía"
             disabled={form.guardando}
           />
-        </>
+        </section>
       )}
 
       {form.clasificacion === 'BAJA' && (
@@ -171,6 +184,42 @@ export function PortatilForm({ portatil, onGuardado }: PortatilFormProps) {
           onSeleccionar={form.setCausalBaja}
           deshabilitado={form.guardando}
         />
+      )}
+
+      {form.clasificacion === 'INTERVENCION' && (
+        <>
+          <ToggleCampo
+            label="¿La pieza es nueva?"
+            checked={form.piezaEsNueva}
+            onChange={form.setPiezaEsNueva}
+            disabled={form.guardando}
+          />
+          <OpcionGroup
+            titulo="Subtipo de intervención"
+            opciones={SUBTIPOS_INTERVENCION.map((v) => ({ value: v, label: SUBTIPO_LABELS[v] }))}
+            seleccion={form.subtipoIntervencion}
+            onSeleccionar={form.setSubtipoIntervencion}
+            deshabilitado={form.guardando}
+          />
+          <CampoTexto
+            label="Piezas a solicitar"
+            required
+            value={form.piezasSolicitar}
+            onChange={form.setPiezasSolicitar}
+            placeholder="Piezas o componentes a instalar"
+            disabled={form.guardando}
+          />
+          {form.subtipoIntervencion === 'REPOTENCIACION' && (
+            <CampoTexto
+              label="Especificación de la repotenciación"
+              required
+              value={form.especificacionRepotenciacion}
+              onChange={form.setEspecificacionRepotenciacion}
+              placeholder="Ej. capacidad final de RAM/Disco"
+              disabled={form.guardando}
+            />
+          )}
+        </>
       )}
 
       {form.completa && (
@@ -197,18 +246,26 @@ export function PortatilForm({ portatil, onGuardado }: PortatilFormProps) {
               )}
             </div>
 
-            <label htmlFor="portatil-observaciones" className="mt-4 block text-sm font-medium text-slate-700">
-              Observaciones técnicas <span className="font-normal text-slate-400">(opcional)</span>
-            </label>
-            <textarea
-              id="portatil-observaciones"
-              value={form.observaciones}
-              onChange={(event) => form.setObservaciones(event.target.value)}
-              disabled={form.guardando}
-              rows={3}
-              placeholder="Notas del daño, pruebas realizadas o pieza intervenida…"
-              className="mt-1 w-full rounded-md border border-line bg-surface px-3 py-2 text-sm text-slate-900 outline-none transition-colors focus:border-slate-400"
-            />
+            {form.clasificacion !== 'NOVEDAD' && (
+              <label
+                htmlFor="portatil-observaciones"
+                className="mt-4 block text-sm font-medium text-slate-700"
+              >
+                Observaciones técnicas{' '}
+                <span className="font-normal text-slate-400">(opcional)</span>
+              </label>
+            )}
+            {form.clasificacion !== 'NOVEDAD' && (
+              <textarea
+                id="portatil-observaciones"
+                value={form.observaciones}
+                onChange={(event) => form.setObservaciones(event.target.value)}
+                disabled={form.guardando}
+                rows={3}
+                placeholder="Notas del daño, pruebas realizadas o pieza intervenida…"
+                className="mt-1 w-full rounded-md border border-line bg-surface px-3 py-2 text-sm text-slate-900 outline-none transition-colors focus:border-slate-400"
+              />
+            )}
 
             {form.errorGuardar && (
               <p className="mt-2 text-sm text-estado-terracota-ink">

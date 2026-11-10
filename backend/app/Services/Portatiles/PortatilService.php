@@ -2,12 +2,16 @@
 
 namespace App\Services\Portatiles;
 
+use App\Enums\ClasificacionPortatilEnum;
 use App\Enums\EstadoEquipoEnum;
+use App\Enums\OrigenDanoGarantiaEnum;
 use App\Enums\UbicacionDestinoEnum;
 use App\Http\Requests\Portatiles\ListarPortatilesRequest;
 use App\Models\GarantiaPortatil;
 use App\Models\InventarioGeneral;
+use App\Models\User;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Validation\ValidationException;
 
 /**
  * Orquestación del registro único de portátiles: búsqueda, diagnóstico inicial,
@@ -16,6 +20,25 @@ use Illuminate\Support\Facades\DB;
 final class PortatilService
 {
     public function __construct(private readonly PortatilStateMachineService $stateMachine) {}
+
+    /**
+     * Bloquea una nueva gestión sobre un activo ya intervenido salvo que el
+     * analista tenga rol `admin` (re-intervención autorizada).
+     */
+    public function asegurarIntervenible(string $placaId, ?User $usuario): void
+    {
+        if ($usuario?->hasRole('admin')) {
+            return;
+        }
+
+        $inventario = InventarioGeneral::where('placa_id', $placaId)->first();
+
+        if ($inventario?->intervenido) {
+            throw ValidationException::withMessages([
+                'placa_id' => 'Este equipo ya fue intervenido. Solo un administrador puede autorizar una nueva gestión.',
+            ]);
+        }
+    }
 
     /**
      * @return array{data: list<GarantiaPortatil>, meta: array<string, int|null>}
@@ -103,7 +126,12 @@ final class PortatilService
     ): GarantiaPortatil {
         $inventario = InventarioGeneral::where('placa_id', $datos['placa_id'])->firstOrFail();
 
-        return DB::transaction(function () use ($inventario, $datos, $estado, $destino, $analistaId) {
+        // Garantía de fábrica: el origen se fija automáticamente, no lo elige el usuario.
+        $origenGarantia = ClasificacionPortatilEnum::from($datos['clasificacion']) === ClasificacionPortatilEnum::GARANTIA
+            ? OrigenDanoGarantiaEnum::FABRICA
+            : null;
+
+        return DB::transaction(function () use ($inventario, $datos, $estado, $destino, $analistaId, $origenGarantia) {
             $registro = GarantiaPortatil::create([
                 'inventario_general_id' => $inventario->id,
                 'placa_id' => $inventario->placa_id,
@@ -113,7 +141,7 @@ final class PortatilService
                 'num_traslado' => $inventario->num_traslado,
                 'clasificacion' => $datos['clasificacion'],
                 'gravedad_novedad' => $datos['gravedad_novedad'] ?? null,
-                'origen_dano_garantia' => $datos['origen_dano_garantia'] ?? null,
+                'origen_dano_garantia' => $origenGarantia,
                 'causal_baja' => $datos['causal_baja'] ?? null,
                 'cantidad_danos' => $datos['cantidad_danos'] ?? null,
                 'test_lenovo' => $datos['test_lenovo'],
@@ -121,6 +149,9 @@ final class PortatilService
                 'ticket_proveedor' => $datos['ticket_proveedor'] ?? null,
                 'partes_fru' => $datos['partes_fru'] ?? null,
                 'piezas_solicitar' => $datos['piezas_solicitar'] ?? null,
+                'pieza_es_nueva' => $datos['pieza_es_nueva'] ?? null,
+                'subtipo_intervencion' => $datos['subtipo_intervencion'] ?? null,
+                'especificacion_repotenciacion' => $datos['especificacion_repotenciacion'] ?? null,
                 'observaciones' => $datos['observaciones'] ?? null,
                 'foto_evidencia' => $datos['foto_evidencia'] ?? null,
                 'ubicacion_destino' => $destino,

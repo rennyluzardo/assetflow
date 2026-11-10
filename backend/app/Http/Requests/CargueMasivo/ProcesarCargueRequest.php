@@ -16,6 +16,7 @@ class ProcesarCargueRequest extends FormRequest
     {
         return [
             'num_traslado' => ['required', 'string', 'max:255'],
+            'ubicacion_origen' => ['required', 'string', 'max:255'],
             'archivo' => [
                 'required',
                 'file',

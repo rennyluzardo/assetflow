@@ -6,7 +6,7 @@ use App\Enums\CausalBajaEnum;
 use App\Enums\ClasificacionPortatilEnum;
 use App\Enums\EstadoEquipoEnum;
 use App\Enums\GravedadNovedadEnum;
-use App\Enums\OrigenDanoGarantiaEnum;
+use App\Enums\SubtipoIntervencionEnum;
 use App\Enums\UbicacionDestinoEnum;
 use Illuminate\Validation\ValidationException;
 
@@ -32,8 +32,8 @@ final class PortatilStateMachineService
             ClasificacionPortatilEnum::FUNCIONAL => EstadoEquipoEnum::COMPLETADO,
             ClasificacionPortatilEnum::NOVEDAD => $this->resolverNovedad($campos),
             ClasificacionPortatilEnum::GARANTIA => $this->resolverGarantia($campos),
-            ClasificacionPortatilEnum::DANO_REPARABLE => $this->resolverDanoReparable($campos),
             ClasificacionPortatilEnum::BAJA => $this->resolverBaja($campos),
+            ClasificacionPortatilEnum::INTERVENCION => $this->resolverIntervencion($campos),
         };
     }
 
@@ -50,9 +50,9 @@ final class PortatilStateMachineService
             ClasificacionPortatilEnum::NOVEDAD => $this->esNovedadPronunciada($campos)
                 ? [UbicacionDestinoEnum::SALA_DE_GARANTIA]
                 : [UbicacionDestinoEnum::ALMACEN],
-            ClasificacionPortatilEnum::GARANTIA,
-            ClasificacionPortatilEnum::DANO_REPARABLE => [UbicacionDestinoEnum::SALA_DE_GARANTIA],
+            ClasificacionPortatilEnum::GARANTIA => [UbicacionDestinoEnum::SALA_DE_GARANTIA],
             ClasificacionPortatilEnum::BAJA => [UbicacionDestinoEnum::SALA_DE_BAJA],
+            ClasificacionPortatilEnum::INTERVENCION => [UbicacionDestinoEnum::ALMACEN],
         };
     }
 
@@ -111,14 +111,18 @@ final class PortatilStateMachineService
     {
         $gravedad = $this->requerirEnum($c, 'gravedad_novedad', GravedadNovedadEnum::class);
 
+        // Los comentarios de la novedad son obligatorios en ambas gravedades.
+        $this->requerirTexto($c, 'observaciones');
+
         if ($gravedad === GravedadNovedadEnum::MINIMA) {
             return EstadoEquipoEnum::COMPLETADO;
         }
 
-        // Pronunciada: más de 1 daño y piezas a solicitar (flujo abierto).
-        if ($this->requerirCantidadDanos($c) <= 1) {
+        // Pronunciada: entre 1 y 4 daños y piezas a solicitar (flujo abierto).
+        $cantidad = $this->requerirCantidadDanos($c);
+        if ($cantidad < 1 || $cantidad > 4) {
             throw ValidationException::withMessages([
-                'cantidad_danos' => 'Una novedad pronunciada exige más de 1 daño (cantidad_danos > 1).',
+                'cantidad_danos' => 'Una novedad pronunciada admite entre 1 y 4 daños (1 <= cantidad_danos <= 4).',
             ]);
         }
 
@@ -128,40 +132,17 @@ final class PortatilStateMachineService
     }
 
     /**
+     * Garantía exclusivamente de fábrica: el origen se fija en `FABRICA` desde
+     * el servicio; aquí solo se valida el ticket del proveedor.
+     *
      * @param  array<string, mixed>  $c
      */
     private function resolverGarantia(array $c): EstadoEquipoEnum
     {
-        $origen = $this->requerirEnum($c, 'origen_dano_garantia', OrigenDanoGarantiaEnum::class);
-
-        if ($origen === OrigenDanoGarantiaEnum::FABRICA) {
-            $this->requerirTexto($c, 'ticket_proveedor');
-
-            return EstadoEquipoEnum::PENDIENTE_GARANTIA;
-        }
-
-        // Inducido: se desvía a compra de piezas.
+        $this->requerirTexto($c, 'ticket_proveedor');
         $this->requerirTexto($c, 'piezas_solicitar');
 
-        return EstadoEquipoEnum::POR_REACONDICIONAR;
-    }
-
-    /**
-     * @param  array<string, mixed>  $c
-     */
-    private function resolverDanoReparable(array $c): EstadoEquipoEnum
-    {
-        if ($this->requerirCantidadDanos($c) > 3) {
-            throw ValidationException::withMessages([
-                'cantidad_danos' => 'El daño reparable admite máximo 3 daños (cantidad_danos <= 3).',
-            ]);
-        }
-
-        $this->requerirTexto($c, 'piezas_solicitar');
-
-        // `partes_fru` es opcional: no todos los portátiles tienen código FRU
-        // de Lenovo al momento del diagnóstico físico (Regla de Fase 6).
-        return EstadoEquipoEnum::POR_REACONDICIONAR;
+        return EstadoEquipoEnum::PENDIENTE_GARANTIA;
     }
 
     /**
@@ -170,8 +151,28 @@ final class PortatilStateMachineService
     private function resolverBaja(array $c): EstadoEquipoEnum
     {
         $this->requerirEnum($c, 'causal_baja', CausalBajaEnum::class);
+        $this->requerirTexto($c, 'serial_disco');
 
         return EstadoEquipoEnum::BAJA_NO_SIRVE;
+    }
+
+    /**
+     * @param  array<string, mixed>  $c
+     */
+    private function resolverIntervencion(array $c): EstadoEquipoEnum
+    {
+        $this->requerirBooleano($c, 'pieza_es_nueva');
+        $subtipo = $this->requerirEnum($c, 'subtipo_intervencion', SubtipoIntervencionEnum::class);
+        $this->requerirTexto($c, 'piezas_solicitar');
+
+        if ($subtipo === SubtipoIntervencionEnum::CAMBIO_PIEZA) {
+            return EstadoEquipoEnum::INTERVENIDO;
+        }
+
+        // Repotenciación: exige la especificación de la capacidad final.
+        $this->requerirTexto($c, 'especificacion_repotenciacion');
+
+        return EstadoEquipoEnum::REPOTENCIADO;
     }
 
     /**
@@ -197,6 +198,14 @@ final class PortatilStateMachineService
     private function requerirTexto(array $c, string $clave): string
     {
         return trim((string) $this->requerir($c, $clave));
+    }
+
+    /**
+     * @param  array<string, mixed>  $c
+     */
+    private function requerirBooleano(array $c, string $clave): bool
+    {
+        return (bool) $this->requerir($c, $clave);
     }
 
     /**

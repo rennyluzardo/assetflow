@@ -15,6 +15,7 @@ class CargueMasivoController extends Controller
         $resultado = $this->cargue->procesar(
             $request->file('archivo'),
             $request->validated('num_traslado'),
+            $request->validated('ubicacion_origen'),
             $request->user()->id,
         );
 

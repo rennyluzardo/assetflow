@@ -7,6 +7,7 @@ enum TipoGestionEnum: string
     case NOVEDAD = 'NOVEDAD';
     case DIAGNOSTICO = 'DIAGNOSTICO';
     case INTERVENCION = 'INTERVENCION';
+    case BAJA = 'BAJA';
 
     public function label(): string
     {
@@ -14,6 +15,7 @@ enum TipoGestionEnum: string
             self::NOVEDAD => 'Novedad',
             self::DIAGNOSTICO => 'Diagnóstico',
             self::INTERVENCION => 'Intervención',
+            self::BAJA => 'Baja',
         };
     }
 }

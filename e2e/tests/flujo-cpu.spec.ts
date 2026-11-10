@@ -6,7 +6,7 @@ test.describe('Cadena CPU + Soplado', () => {
     await login(page, CREDENCIALES.admin.email)
 
     // 1) /equipos — novedad con polvo: queda en cola de soplado.
-    await page.getByRole('link', { name: 'Equipos' }).click()
+    await page.getByRole('link', { name: 'CPUs' }).click()
     await page.waitForURL('**/equipos')
 
     await escanear(page, PLACAS.cpuPendiente)
@@ -14,7 +14,9 @@ test.describe('Cadena CPU + Soplado', () => {
 
     await page.getByRole('button', { name: 'Novedad' }).click()
     await page.getByRole('button', { name: 'Sí', exact: true }).click()
+    await page.getByPlaceholder('Notas del daño o pieza intervenida…').fill('Equipo con acumulación de polvo.')
     await page.getByRole('button', { name: 'Sala de Garantía' }).click()
+    await page.locator('#foto-equipo').setInputFiles(EVIDENCIA_PNG)
     await page.getByRole('button', { name: 'Guardar registro' }).click()
 
     await expect(page.getByText('Por soplar')).toBeVisible()

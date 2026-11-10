@@ -6,10 +6,11 @@ const NAV = {
   dashboard: 'Dashboard',
   cargue: 'Cargue Masivo',
   inventario: 'Inventario',
-  equipos: 'Equipos',
+  equipos: 'CPUs',
   soplado: 'Soplado',
   portatiles: 'Portátiles',
   trazabilidad: 'Trazabilidad',
+  traslados: 'Gestión y Recibos',
 } as const
 
 test.describe('Login y redirección por permisos', () => {
@@ -30,7 +31,7 @@ test.describe('Login y redirección por permisos', () => {
       await expect(nav.getByRole('link', { name: modulo })).toBeVisible()
     }
 
-    for (const modulo of [NAV.cargue, NAV.soplado, NAV.portatiles]) {
+    for (const modulo of [NAV.cargue, NAV.soplado, NAV.portatiles, NAV.traslados]) {
       await expect(nav.getByRole('link', { name: modulo })).toHaveCount(0)
     }
   })

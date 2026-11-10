@@ -1,5 +1,6 @@
 import type { InventarioMeta } from '../types'
 import type { InventarioTabla as Tabla } from '../useInventarioTable'
+import { useAlturaFilasInventario } from '../useAlturaFilasInventario'
 import { EncabezadoOrdenable } from './EncabezadoOrdenable'
 import { EstadosTabla } from './EstadosTabla'
 import { FilaInventario } from './FilaInventario'
@@ -27,16 +28,17 @@ export function InventarioTabla({
 }: Props) {
   const filas = table.getRowModel().rows
   const vacio = !cargando && !isError && filas.length === 0
+  const { ref, altura } = useAlturaFilasInventario(filas.length)
 
   return (
-    <div className="mx-auto w-full max-w-7xl overflow-hidden rounded-lg border border-line bg-surface">
-      <div className="overflow-x-auto">
+    <div className="mx-auto flex min-h-0 w-full max-w-7xl flex-1 flex-col overflow-hidden rounded-lg border border-line bg-surface">
+      <div ref={ref} className="min-h-0 flex-1 overflow-auto">
         <table className="w-full border-collapse text-left">
-          <thead>
+          <thead className="sticky top-0 z-10">
             {table.getHeaderGroups().map((grupo) => (
               <tr
                 key={grupo.id}
-                className="border-b border-line bg-muted/60 text-xs font-medium uppercase tracking-wide text-slate-500"
+                className="border-b border-line bg-muted text-xs font-medium uppercase tracking-wide text-slate-500"
               >
                 {grupo.headers.map((header) => (
                   <EncabezadoOrdenable key={header.id} header={header} />
@@ -46,7 +48,12 @@ export function InventarioTabla({
           </thead>
           <tbody>
             {filas.map((fila) => (
-              <FilaInventario key={fila.id} fila={fila} atenuada={refrescando && !cargando} />
+              <FilaInventario
+                key={fila.id}
+                fila={fila}
+                atenuada={refrescando && !cargando}
+                altura={altura}
+              />
             ))}
           </tbody>
         </table>

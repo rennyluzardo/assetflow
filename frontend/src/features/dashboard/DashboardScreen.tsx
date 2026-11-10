@@ -8,7 +8,14 @@ import {
 import type { EstadoEquipo, EstadoSemantica } from '@/constants/equipos'
 import { cn } from '@/lib/cn'
 import { descargarBitacoraCsv, useDashboard } from './api'
-import type { ModuloDashboard, PeriodoDashboard } from './types'
+import type {
+  DashboardParams,
+  ModuloDashboard,
+  PeriodoDashboard,
+  ProductividadAnalista as ProductividadAnalistaRow,
+  SlaResumen,
+  TipoEquipoDashboard,
+} from './types'
 
 const PERIODOS: ReadonlyArray<{ value: PeriodoDashboard; label: string }> = [
   { value: 'hoy', label: 'Hoy' },
@@ -22,6 +29,12 @@ const ESTACIONES: ReadonlyArray<{ value: ModuloDashboard | ''; label: string }> 
   { value: 'EQUIPOS', label: 'Diagnóstico CPU' },
   { value: 'SOPLADO', label: 'Soplado' },
   { value: 'PORTATILES', label: 'Portátiles' },
+]
+
+const TIPOS_EQUIPO: ReadonlyArray<{ value: TipoEquipoDashboard | ''; label: string }> = [
+  { value: '', label: 'Todos los tipos' },
+  { value: 'CPU', label: 'CPU' },
+  { value: 'PORTATIL', label: 'Portátil' },
 ]
 
 const PERIODO_LABEL: Record<PeriodoDashboard, string> = {
@@ -105,10 +118,36 @@ function DistribucionEstados({ conteo }: { conteo: ReadonlyArray<{ estado: strin
   )
 }
 
+/** Etiqueta de bono por cumplimiento de meta (>=83% / >=85% / >=87%). */
+function BonoBadge({ bono }: { bono: number }) {
+  if (bono <= 0) {
+    return (
+      <span className="rounded-full border border-slate-200 bg-slate-50 px-2 py-0.5 text-[11px] font-medium text-slate-500">
+        Sin bono
+      </span>
+    )
+  }
+
+  return (
+    <span className="rounded-full border border-estado-verde-line bg-estado-verde px-2 py-0.5 text-[11px] font-semibold text-estado-verde-ink">
+      Bono {bono}%
+    </span>
+  )
+}
+
+/** Cumplimiento de SLA en formato compacto "dentro/total (X%)". */
+function SlaMini({ sla }: { sla: SlaResumen }) {
+  return (
+    <span className="font-mono text-[11px] text-slate-400">
+      SLA {sla.dentro}/{sla.total}
+    </span>
+  )
+}
+
 function ProductividadAnalista({
   analistas,
 }: {
-  analistas: ReadonlyArray<{ nombre: string; total: number; meta: number }>
+  analistas: ReadonlyArray<ProductividadAnalistaRow>
 }) {
   if (analistas.length === 0) {
     return <p className="text-sm text-slate-400">Sin productividad registrada en el periodo.</p>
@@ -117,20 +156,26 @@ function ProductividadAnalista({
   return (
     <ul className="space-y-4">
       {analistas.map((a) => {
-        const pct = a.meta > 0 ? Math.min(100, Math.round((a.total / a.meta) * 100)) : 0
+        const pct = Math.min(100, Math.max(0, a.porcentaje))
         return (
-          <li key={a.nombre}>
-            <div className="mb-1.5 flex items-baseline justify-between text-sm">
-              <span className="font-medium text-slate-700">{a.nombre}</span>
-              <span className="font-mono text-xs text-slate-500">
-                {a.total} / {a.meta}
+          <li key={a.analista_id}>
+            <div className="mb-1.5 flex flex-wrap items-center justify-between gap-2 text-sm">
+              <span className="flex items-center gap-2">
+                <span className="font-medium text-slate-700">{a.nombre}</span>
+                <BonoBadge bono={a.bono} />
+              </span>
+              <span className="flex items-center gap-3">
+                <SlaMini sla={a.sla} />
+                <span className="font-mono text-xs text-slate-500">
+                  {a.total} / {a.meta} · {a.porcentaje}%
+                </span>
               </span>
             </div>
             <div className="h-2 w-full overflow-hidden rounded-full bg-muted">
               <div
                 className={cn(
-                  'h-full rounded-full',
-                  pct >= 100 ? 'bg-estado-verde-line' : 'bg-slate-400',
+                  'h-full rounded-full transition-all',
+                  a.bono > 0 ? 'bg-estado-verde-line' : pct >= 100 ? 'bg-slate-500' : 'bg-slate-400',
                 )}
                 style={{ width: `${pct}%` }}
               />
@@ -147,16 +192,29 @@ export function DashboardScreen() {
   const { session, hasPermission } = useAuth()
   const [periodo, setPeriodo] = useState<PeriodoDashboard>('hoy')
   const [modulo, setModulo] = useState<ModuloDashboard | ''>('')
+  const [tipoEquipo, setTipoEquipo] = useState<TipoEquipoDashboard | ''>('')
+  const [fechaInicio, setFechaInicio] = useState('')
+  const [fechaFin, setFechaFin] = useState('')
   const [exportando, setExportando] = useState(false)
   const [errorExportar, setErrorExportar] = useState<string | null>(null)
 
-  const params = { periodo, ...(modulo ? { modulo } : {}) }
+  const fechasValidas = fechaInicio !== '' && fechaFin !== '' && fechaFin >= fechaInicio
+  const params: DashboardParams = {
+    periodo,
+    ...(modulo ? { modulo } : {}),
+    ...(tipoEquipo ? { tipo_equipo: tipoEquipo } : {}),
+    ...(fechasValidas ? { fecha_inicio: fechaInicio, fecha_fin: fechaFin } : {}),
+  }
   const { data, isLoading, isError } = useDashboard(params)
 
   const esAdmin = session?.roles.includes('admin') ?? false
   const soloPropio = data?.solo_propio ?? (hasPermission('dashboard.ver_solo_propio') && !esAdmin)
 
   const exportar = async () => {
+    if (fechaInicio !== '' && fechaFin !== '' && fechaFin < fechaInicio) {
+      setErrorExportar('La fecha «Hasta» debe ser mayor o igual a la fecha «Desde».')
+      return
+    }
     setExportando(true)
     setErrorExportar(null)
     try {
@@ -222,6 +280,48 @@ export function DashboardScreen() {
           ))}
         </select>
 
+        <select
+          aria-label="Filtro de tipo de equipo"
+          value={tipoEquipo}
+          onChange={(event) => setTipoEquipo(event.target.value as TipoEquipoDashboard | '')}
+          className="rounded-md border border-line bg-surface px-3 py-2 text-sm text-slate-700 outline-none transition-colors focus:border-slate-400"
+        >
+          {TIPOS_EQUIPO.map((e) => (
+            <option key={e.value} value={e.value}>
+              {e.label}
+            </option>
+          ))}
+        </select>
+
+        <div className="flex items-center gap-2">
+          <label
+            htmlFor="dashboard-fecha-inicio"
+            className="text-sm text-slate-500"
+          >
+            Desde
+          </label>
+          <input
+            id="dashboard-fecha-inicio"
+            type="date"
+            value={fechaInicio}
+            onChange={(event) => setFechaInicio(event.target.value)}
+            className="rounded-md border border-line bg-surface px-2 py-1.5 text-sm text-slate-700 outline-none transition-colors focus:border-slate-400"
+          />
+          <label
+            htmlFor="dashboard-fecha-fin"
+            className="text-sm text-slate-500"
+          >
+            Hasta
+          </label>
+          <input
+            id="dashboard-fecha-fin"
+            type="date"
+            value={fechaFin}
+            onChange={(event) => setFechaFin(event.target.value)}
+            className="rounded-md border border-line bg-surface px-2 py-1.5 text-sm text-slate-700 outline-none transition-colors focus:border-slate-400"
+          />
+        </div>
+
         <button
           type="button"
           disabled={exportando}
@@ -268,6 +368,35 @@ export function DashboardScreen() {
               valor={data.meta_diaria}
               sub="intervenciones por técnico/día"
             />
+          </section>
+
+          <section className="mx-auto w-full max-w-7xl rounded-lg border border-line bg-surface p-5">
+            <div className="flex flex-wrap items-center justify-between gap-4">
+              <div>
+                <h2 className="text-sm font-semibold text-slate-700">Meta y bonos del periodo</h2>
+                <p className="mt-1 text-xs text-slate-500">
+                  {data.productividad.global.total} / {data.productividad.global.meta} intervenciones ·{' '}
+                  {data.productividad.global.porcentaje}% de cumplimiento
+                </p>
+              </div>
+              <div className="flex items-center gap-4">
+                <SlaMini sla={data.productividad.global.sla} />
+                <BonoBadge bono={data.productividad.global.bono} />
+              </div>
+            </div>
+            <div className="mt-3 h-2.5 w-full overflow-hidden rounded-full bg-muted">
+              <div
+                className={cn(
+                  'h-full rounded-full transition-all',
+                  data.productividad.global.bono > 0 ? 'bg-estado-verde-line' : 'bg-slate-400',
+                )}
+                style={{ width: `${Math.min(100, Math.max(0, data.productividad.global.porcentaje))}%` }}
+              />
+            </div>
+            <p className="mt-2 text-xs text-slate-400">
+              Escalera de bonos: ≥83% → 5% · ≥85% → 10% · ≥87% → 15% (SLA máx.{' '}
+              {data.sla_dias} días).
+            </p>
           </section>
 
           <section className="mx-auto grid w-full max-w-7xl grid-cols-1 gap-6 lg:grid-cols-2">

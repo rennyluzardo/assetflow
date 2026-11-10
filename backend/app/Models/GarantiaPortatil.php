@@ -7,6 +7,7 @@ use App\Enums\ClasificacionPortatilEnum;
 use App\Enums\EstadoEquipoEnum;
 use App\Enums\GravedadNovedadEnum;
 use App\Enums\OrigenDanoGarantiaEnum;
+use App\Enums\SubtipoIntervencionEnum;
 use App\Enums\UbicacionDestinoEnum;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
@@ -37,6 +38,9 @@ class GarantiaPortatil extends Model
         'ticket_proveedor',
         'partes_fru',
         'piezas_solicitar',
+        'pieza_es_nueva',
+        'subtipo_intervencion',
+        'especificacion_repotenciacion',
         'reparado_por',
         'observaciones',
         'foto_evidencia',
@@ -54,6 +58,8 @@ class GarantiaPortatil extends Model
             'causal_baja' => CausalBajaEnum::class,
             'cantidad_danos' => 'integer',
             'test_lenovo' => 'boolean',
+            'pieza_es_nueva' => 'boolean',
+            'subtipo_intervencion' => SubtipoIntervencionEnum::class,
             'ubicacion_destino' => UbicacionDestinoEnum::class,
             'estado' => EstadoEquipoEnum::class,
         ];

@@ -12,16 +12,17 @@ test.describe('Flujo Portátil: garantía → cierre único', () => {
     await expect(page.getByRole('button', { name: 'Garantía' })).toBeVisible()
 
     await page.getByRole('button', { name: 'Garantía' }).click()
-    await page.getByPlaceholder('Serial del disco SSD/HDD').fill('SD-E2E-001')
-    await page.getByRole('button', { name: 'Fábrica' }).click()
     await page.getByPlaceholder('Número de ticket del proveedor').fill('TICKET-E2E')
+    await page.getByPlaceholder('Pieza sobre la que aplica la garantía').fill('Board E2E')
     await page.getByRole('button', { name: 'Sala de Garantía' }).click()
     await page.getByRole('button', { name: 'Guardar diagnóstico' }).click()
 
     await expect(page.getByText('Pendiente garantía')).toBeVisible()
 
-    // 2) Re-escaneo: registro único abierto → modal de cierre → Almacén General.
+    // 2) Re-escaneo: registro único abierto → alerta ámbar + botón de cierre.
     await escanear(page, PLACAS.portatilPendiente)
+    await expect(page.getByRole('button', { name: 'Cerrar Registro / Enviar a Almacén' })).toBeVisible()
+    await page.getByRole('button', { name: 'Cerrar Registro / Enviar a Almacén' }).click()
     await expect(page.getByRole('dialog', { name: 'Cerrar registro de portátil' })).toBeVisible()
 
     await page.getByLabel('Reparado por').fill('Taller E2E')

@@ -22,15 +22,15 @@ beforeEach(function () {
     Sanctum::actingAs($this->admin);
 });
 
-it('pagina el inventario por defecto a 250 registros por página', function () {
+it('pagina el inventario por defecto a 10 registros por página', function () {
     InventarioGeneral::factory()->count(260)->create(['usuario_cargue' => $this->admin->id]);
 
     $respuesta = $this->getJson('/api/inventario');
 
     $respuesta->assertOk()
-        ->assertJsonPath('meta.per_page', 250)
+        ->assertJsonPath('meta.per_page', 10)
         ->assertJsonPath('meta.total', 260)
-        ->assertJsonCount(250, 'data');
+        ->assertJsonCount(10, 'data');
 });
 
 it('filtra la tabla maestra por número de traslado', function () {
@@ -68,6 +68,12 @@ it('filtra por estado_actual, incluyendo los activos sin estado', function () {
     $this->getJson('/api/inventario?estado_actual=SIN_ESTADO')
         ->assertOk()
         ->assertJsonPath('meta.total', 2);
+});
+
+it('rechaza el estado obsoleto REPARADO en el filtro de inventario', function () {
+    $this->getJson('/api/inventario?estado_actual=REPARADO')
+        ->assertStatus(422)
+        ->assertJsonValidationErrors('estado_actual');
 });
 
 it('busca por placa_id, serial o descripcion de forma insensible a mayúsculas', function () {

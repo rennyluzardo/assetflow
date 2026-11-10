@@ -51,7 +51,9 @@ it('cierra un equipo Por soplar de origen Novedad a Completado', function () {
         'placa_id' => 'AF-SOP-N',
         'tipo_gestion' => 'NOVEDAD',
         'requiere_soplado_o_pasta' => true,
+        'observaciones' => 'Novedad con acumulación de polvo.',
         'ubicacion_destino' => 'SALA_DE_GARANTIA',
+        'foto_equipo' => UploadedFile::fake()->image('evidencia.jpg'),
     ])->assertCreated();
 
     $respuesta = $this->post('/api/soplado', sopladoPayload('AF-SOP-N'), ['Accept' => 'application/json']);
@@ -72,6 +74,7 @@ it('cierra un equipo Por soplar de origen Intervención a Intervenido', function
         'hay_pieza' => true,
         'requiere_soplado_o_pasta' => true,
         'ubicacion_destino' => 'SALA_DE_GARANTIA',
+        'foto_equipo' => UploadedFile::fake()->image('evidencia.jpg'),
     ])->assertCreated();
 
     $this->post('/api/soplado', sopladoPayload('AF-SOP-I', 'DBAN'), ['Accept' => 'application/json'])->assertCreated();
@@ -99,7 +102,9 @@ it('rechaza el soplado con un destino no permitido', function () {
         'placa_id' => 'AF-SOP-D',
         'tipo_gestion' => 'NOVEDAD',
         'requiere_soplado_o_pasta' => true,
+        'observaciones' => 'Novedad con acumulación de polvo.',
         'ubicacion_destino' => 'SALA_DE_GARANTIA',
+        'foto_equipo' => UploadedFile::fake()->image('evidencia.jpg'),
     ])->assertCreated();
 
     $this->post('/api/soplado', sopladoPayload('AF-SOP-D', 'SALA_DE_BAJA'), ['Accept' => 'application/json'])
@@ -114,7 +119,9 @@ it('rechaza el soplado sin evidencia fotográfica', function () {
         'placa_id' => 'AF-SOP-F',
         'tipo_gestion' => 'NOVEDAD',
         'requiere_soplado_o_pasta' => true,
+        'observaciones' => 'Novedad con acumulación de polvo.',
         'ubicacion_destino' => 'SALA_DE_GARANTIA',
+        'foto_equipo' => UploadedFile::fake()->image('evidencia.jpg'),
     ])->assertCreated();
 
     $payload = sopladoPayload('AF-SOP-F');
@@ -132,7 +139,9 @@ it('devuelve el equipo activo Por soplar desde /soplado/buscar', function () {
         'placa_id' => 'AF-SOP-B',
         'tipo_gestion' => 'NOVEDAD',
         'requiere_soplado_o_pasta' => true,
+        'observaciones' => 'Novedad con acumulación de polvo.',
         'ubicacion_destino' => 'SALA_DE_GARANTIA',
+        'foto_equipo' => UploadedFile::fake()->image('evidencia.jpg'),
     ])->assertCreated();
 
     $this->getJson('/api/soplado/buscar/AF-SOP-B')

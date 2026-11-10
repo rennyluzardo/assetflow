@@ -35,10 +35,13 @@ export interface RegistrarEquipoPayload {
   requiere_soplado_o_pasta?: boolean
   esta_funcional?: boolean
   tiene_garantia?: boolean
-  es_obsoleta?: boolean
   hay_pieza?: boolean
+  motivo_baja?: string
+  serial_disco?: string
+  ticket_garantia?: string
+  pieza_garantia?: string
   ubicacion_destino: UbicacionDestino
-  foto_equipo?: string
+  foto_equipo?: File
   observaciones?: string
 }
 

@@ -3,7 +3,7 @@ import type {
   CausalBaja,
   ClasificacionPortatil,
   GravedadNovedad,
-  OrigenDanoGarantia,
+  SubtipoIntervencion,
 } from './types'
 
 /**
@@ -17,12 +17,16 @@ import type {
 
 export interface CamposPortatil {
   gravedad_novedad?: GravedadNovedad
-  origen_dano_garantia?: OrigenDanoGarantia
   causal_baja?: CausalBaja
   cantidad_danos?: number
   ticket_proveedor?: string
   partes_fru?: string
   piezas_solicitar?: string
+  serial_disco?: string
+  pieza_es_nueva?: boolean
+  subtipo_intervencion?: SubtipoIntervencion
+  especificacion_repotenciacion?: string
+  observaciones?: string
 }
 
 function esTexto(valor: unknown): valor is string {
@@ -40,30 +44,40 @@ export function camposFaltantes(clasificacion: ClasificacionPortatil, c: CamposP
     case 'NOVEDAD':
       if (c.gravedad_novedad === undefined) {
         faltantes.push('gravedad_novedad')
-      } else if (c.gravedad_novedad === 'PRONUNCIADA') {
-        if (c.cantidad_danos === undefined || c.cantidad_danos <= 1) faltantes.push('cantidad_danos')
-        if (!esTexto(c.piezas_solicitar)) faltantes.push('piezas_solicitar')
+      } else {
+        if (!esTexto(c.observaciones)) faltantes.push('observaciones')
+        if (c.gravedad_novedad === 'PRONUNCIADA') {
+          if (c.cantidad_danos === undefined || c.cantidad_danos < 1 || c.cantidad_danos > 4) {
+            faltantes.push('cantidad_danos')
+          }
+          if (!esTexto(c.piezas_solicitar)) faltantes.push('piezas_solicitar')
+        }
       }
       break
 
     case 'GARANTIA':
-      if (c.origen_dano_garantia === undefined) {
-        faltantes.push('origen_dano_garantia')
-      } else if (c.origen_dano_garantia === 'FABRICA') {
-        if (!esTexto(c.ticket_proveedor)) faltantes.push('ticket_proveedor')
-      } else if (!esTexto(c.piezas_solicitar)) {
-        faltantes.push('piezas_solicitar')
-      }
-      break
-
-    case 'DANO_REPARABLE':
-      if (c.cantidad_danos === undefined || c.cantidad_danos > 3) faltantes.push('cantidad_danos')
+      if (!esTexto(c.ticket_proveedor)) faltantes.push('ticket_proveedor')
       if (!esTexto(c.piezas_solicitar)) faltantes.push('piezas_solicitar')
-      // `partes_fru` es opcional (no todos los portátiles tienen código FRU de Lenovo).
       break
 
     case 'BAJA':
       if (c.causal_baja === undefined) faltantes.push('causal_baja')
+      if (!esTexto(c.serial_disco)) faltantes.push('serial_disco')
+      break
+
+    case 'INTERVENCION':
+      if (c.pieza_es_nueva === undefined) faltantes.push('pieza_es_nueva')
+      if (c.subtipo_intervencion === undefined) {
+        faltantes.push('subtipo_intervencion')
+      } else {
+        if (!esTexto(c.piezas_solicitar)) faltantes.push('piezas_solicitar')
+        if (
+          c.subtipo_intervencion === 'REPOTENCIACION' &&
+          !esTexto(c.especificacion_repotenciacion)
+        ) {
+          faltantes.push('especificacion_repotenciacion')
+        }
+      }
       break
   }
 
@@ -81,10 +95,11 @@ export function destinosPermitidos(
     case 'NOVEDAD':
       return c.gravedad_novedad === 'PRONUNCIADA' ? ['SALA_DE_GARANTIA'] : ['ALMACEN']
     case 'GARANTIA':
-    case 'DANO_REPARABLE':
       return ['SALA_DE_GARANTIA']
     case 'BAJA':
       return ['SALA_DE_BAJA']
+    case 'INTERVENCION':
+      return ['ALMACEN']
   }
 }
 
@@ -99,11 +114,11 @@ export function resolverEstado(
     case 'NOVEDAD':
       return c.gravedad_novedad === 'PRONUNCIADA' ? 'POR_REACONDICIONAR' : 'COMPLETADO'
     case 'GARANTIA':
-      return c.origen_dano_garantia === 'FABRICA' ? 'PENDIENTE_GARANTIA' : 'POR_REACONDICIONAR'
-    case 'DANO_REPARABLE':
-      return 'POR_REACONDICIONAR'
+      return 'PENDIENTE_GARANTIA'
     case 'BAJA':
       return 'BAJA_NO_SIRVE'
+    case 'INTERVENCION':
+      return c.subtipo_intervencion === 'REPOTENCIACION' ? 'REPOTENCIADO' : 'INTERVENIDO'
   }
 }
 

@@ -9,8 +9,8 @@ enum EstadoEquipoEnum: string
     case POR_REACONDICIONAR = 'POR_REACONDICIONAR';
     case COMPLETADO = 'COMPLETADO';
     case INTERVENIDO = 'INTERVENIDO';
+    case REPOTENCIADO = 'REPOTENCIADO';
     case BAJA_NO_SIRVE = 'BAJA_NO_SIRVE';
-    case REPARADO = 'REPARADO';
 
     public function label(): string
     {
@@ -20,8 +20,8 @@ enum EstadoEquipoEnum: string
             self::POR_REACONDICIONAR => 'Por reacondicionar',
             self::COMPLETADO => 'Completado',
             self::INTERVENIDO => 'Intervenido',
+            self::REPOTENCIADO => 'Repotenciado',
             self::BAJA_NO_SIRVE => 'Baja (No sirve)',
-            self::REPARADO => 'Reparado',
         };
     }
 
@@ -29,7 +29,7 @@ enum EstadoEquipoEnum: string
     {
         return in_array(
             $this,
-            [self::COMPLETADO, self::INTERVENIDO, self::BAJA_NO_SIRVE, self::REPARADO],
+            [self::COMPLETADO, self::INTERVENIDO, self::REPOTENCIADO, self::BAJA_NO_SIRVE],
             true,
         );
     }
@@ -46,7 +46,7 @@ enum EstadoEquipoEnum: string
             self::POR_REACONDICIONAR => 3,
             self::COMPLETADO => 4,
             self::INTERVENIDO => 5,
-            self::REPARADO => 6,
+            self::REPOTENCIADO => 6,
             self::BAJA_NO_SIRVE => 7,
         };
     }

@@ -28,6 +28,8 @@ class InventarioGeneral extends Model
         'num_traslado',
         'estado_actual',
         'intervenido',
+        'fecha_cargue',
+        'ubicacion_origen',
         'usuario_cargue',
         'analista_intervencion',
         'modulo_intervencion',
@@ -40,6 +42,7 @@ class InventarioGeneral extends Model
             'intervenido' => 'boolean',
             'ubicacion_actual' => UbicacionDestinoEnum::class,
             'estado_actual' => EstadoEquipoEnum::class,
+            'fecha_cargue' => 'datetime',
             'fecha_intervencion' => 'datetime',
         ];
     }

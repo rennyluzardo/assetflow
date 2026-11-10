@@ -8,6 +8,7 @@ use App\Models\Equipo;
 use App\Models\GarantiaPortatil;
 use App\Models\InventarioGeneral;
 use App\Models\SopladoRegistro;
+use App\Models\Traslado;
 use App\Models\User;
 use App\Support\InventarioE2eFixtures;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -150,6 +151,29 @@ it('es idempotente al ejecutarse dos veces seguidas', function () {
         'estado_actual' => null,
         'intervenido' => false,
     ]);
+});
+
+it('elimina las cabeceras de traslado TR-E2E-* sin tocar las reales', function () {
+    Traslado::create([
+        'codigo' => 'TR-E2E-123',
+        'zona_origen' => 'BOGOTA',
+        'zona_destino' => 'MEDELLIN',
+        'estado' => 'EN_TRANSITO',
+        'analista_id' => null,
+    ]);
+
+    Traslado::create([
+        'codigo' => '319126',
+        'zona_origen' => 'BOGOTA',
+        'zona_destino' => 'BOGOTA',
+        'estado' => 'EN_TRANSITO',
+        'analista_id' => null,
+    ]);
+
+    $this->artisan('e2e:reset-fixtures')->assertSuccessful();
+
+    $this->assertDatabaseMissing('traslados', ['codigo' => 'TR-E2E-123']);
+    $this->assertDatabaseHas('traslados', ['codigo' => '319126']);
 });
 
 it('está bloqueado en producción', function () {

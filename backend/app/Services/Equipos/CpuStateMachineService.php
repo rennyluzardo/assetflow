@@ -18,6 +18,7 @@ final class CpuStateMachineService
             TipoGestionEnum::NOVEDAD => $this->resolverNovedad($respuestas),
             TipoGestionEnum::DIAGNOSTICO => $this->resolverDiagnostico($respuestas),
             TipoGestionEnum::INTERVENCION => $this->resolverIntervencion($respuestas),
+            TipoGestionEnum::BAJA => $this->resolverBaja($respuestas),
         };
     }
 
@@ -30,6 +31,7 @@ final class CpuStateMachineService
             TipoGestionEnum::NOVEDAD => $this->destinosNovedad($respuestas),
             TipoGestionEnum::DIAGNOSTICO => $this->destinosDiagnostico($respuestas),
             TipoGestionEnum::INTERVENCION => $this->destinosIntervencion(),
+            TipoGestionEnum::BAJA => [UbicacionDestinoEnum::SALA_DE_BAJA],
         };
     }
 
@@ -125,12 +127,13 @@ final class CpuStateMachineService
     private function resolverDiagnostico(array $r): EstadoEquipoEnum
     {
         if (! $this->respuestaBooleana($r, 'esta_funcional')) {
-            return $this->respuestaBooleana($r, 'tiene_garantia')
-                ? EstadoEquipoEnum::PENDIENTE_GARANTIA
-                : EstadoEquipoEnum::BAJA_NO_SIRVE;
-        }
+            if ($this->respuestaBooleana($r, 'tiene_garantia')) {
+                $this->requerirTexto($r, 'ticket_garantia');
+                $this->requerirTexto($r, 'pieza_garantia');
 
-        if ($this->respuestaBooleana($r, 'es_obsoleta')) {
+                return EstadoEquipoEnum::PENDIENTE_GARANTIA;
+            }
+
             return EstadoEquipoEnum::BAJA_NO_SIRVE;
         }
 
@@ -145,10 +148,6 @@ final class CpuStateMachineService
             return $this->respuestaBooleana($r, 'tiene_garantia')
                 ? [UbicacionDestinoEnum::SALA_DE_GARANTIA]
                 : [UbicacionDestinoEnum::SALA_DE_BAJA];
-        }
-
-        if ($this->respuestaBooleana($r, 'es_obsoleta')) {
-            return [UbicacionDestinoEnum::SALA_DE_BAJA];
         }
 
         return $this->respuestaBooleana($r, 'requiere_soplado_o_pasta')
@@ -167,9 +166,38 @@ final class CpuStateMachineService
             : EstadoEquipoEnum::INTERVENIDO;
     }
 
+    /**
+     * Retiro directo de CPU: siempre termina en BAJA_NO_SIRVE (cierra inventario).
+     * La rama funcional (retiro por vida útil) auto-fija la obsolecencia.
+     */
+    private function resolverBaja(array $r): EstadoEquipoEnum
+    {
+        $this->respuestaBooleana($r, 'esta_funcional');
+
+        return EstadoEquipoEnum::BAJA_NO_SIRVE;
+    }
+
     private function destinosIntervencion(): array
     {
         return [UbicacionDestinoEnum::SALA_DE_GARANTIA];
+    }
+
+    /**
+     * Campos que el motor fija automáticamente según la rama (nunca los elige
+     * el usuario). Se fusionan con los datos validados al persistir.
+     *
+     * @return array<string, mixed>
+     */
+    public function camposAutomaticos(TipoGestionEnum $tipo, array $respuestas): array
+    {
+        if ($tipo === TipoGestionEnum::BAJA && $this->respuestaBooleana($respuestas, 'esta_funcional')) {
+            return [
+                'es_obsoleta' => true,
+                'motivo_baja' => 'OBSOLETA',
+            ];
+        }
+
+        return [];
     }
 
     private function respuestaBooleana(array $respuestas, string $clave): bool
@@ -181,6 +209,17 @@ final class CpuStateMachineService
         }
 
         return (bool) $respuestas[$clave];
+    }
+
+    private function requerirTexto(array $respuestas, string $clave): string
+    {
+        if (! array_key_exists($clave, $respuestas) || $respuestas[$clave] === null || trim((string) $respuestas[$clave]) === '') {
+            throw ValidationException::withMessages([
+                $clave => "El campo \"{$clave}\" es obligatorio para este tipo de gestión.",
+            ]);
+        }
+
+        return trim((string) $respuestas[$clave]);
     }
 
     /**

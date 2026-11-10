@@ -32,6 +32,7 @@ function descargarPlantilla(): void {
 /** Pantalla de ingesta masiva: archivo Cubit (CSV/XLSX) + número de traslado. */
 export function CargueMasivoScreen() {
   const [numTraslado, setNumTraslado] = useState('')
+  const [ubicacionOrigen, setUbicacionOrigen] = useState('')
   const [archivo, setArchivo] = useState<File | null>(null)
   const [errorArchivo, setErrorArchivo] = useState<string | null>(null)
   const [arrastrando, setArrastrando] = useState(false)
@@ -67,14 +68,18 @@ export function CargueMasivoScreen() {
     aceptarArchivo(event.dataTransfer.files?.[0])
   }
 
-  const puedeEnviar = archivo !== null && numTraslado.trim() !== '' && !procesar.isPending
+  const puedeEnviar =
+    archivo !== null &&
+    numTraslado.trim() !== '' &&
+    ubicacionOrigen.trim() !== '' &&
+    !procesar.isPending
 
   const handleSubmit = (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault()
-    if (archivo === null || numTraslado.trim() === '') return
+    if (archivo === null || numTraslado.trim() === '' || ubicacionOrigen.trim() === '') return
 
     procesar.mutate(
-      { num_traslado: numTraslado.trim(), archivo },
+      { num_traslado: numTraslado.trim(), ubicacion_origen: ubicacionOrigen.trim(), archivo },
       { onSuccess: (res) => setResultado(res) },
     )
   }
@@ -106,6 +111,23 @@ export function CargueMasivoScreen() {
             autoComplete="off"
             spellCheck={false}
             className="w-full rounded-md border border-line bg-surface px-3 py-2.5 font-mono text-sm text-slate-900 outline-none transition-colors placeholder:font-sans placeholder:text-slate-400 focus:border-slate-400 focus:ring-2 focus:ring-slate-300"
+          />
+        </div>
+
+        <div>
+          <label htmlFor="ubicacion_origen" className="mb-1.5 block text-sm font-medium text-slate-700">
+            Ubicación de origen
+          </label>
+          <input
+            id="ubicacion_origen"
+            type="text"
+            value={ubicacionOrigen}
+            onChange={(event) => setUbicacionOrigen(event.target.value)}
+            disabled={procesar.isPending}
+            placeholder="Ej. Bogotá"
+            autoComplete="off"
+            spellCheck={false}
+            className="w-full rounded-md border border-line bg-surface px-3 py-2.5 text-sm text-slate-900 outline-none transition-colors placeholder:text-slate-400 focus:border-slate-400 focus:ring-2 focus:ring-slate-300"
           />
         </div>
 

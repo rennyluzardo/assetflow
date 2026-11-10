@@ -71,8 +71,10 @@ it('toma el analista_id del token en /equipos e ignora el del payload', function
         'placa_id' => 'AF-AUTH-EQ',
         'tipo_gestion' => 'NOVEDAD',
         'requiere_soplado_o_pasta' => false,
+        'observaciones' => 'Novedad menor.',
         'ubicacion_destino' => 'DBAN',
         'analista_id' => 999999,
+        'foto_equipo' => UploadedFile::fake()->image('evidencia.jpg'),
     ])->assertCreated();
 
     $this->assertDatabaseHas('equipos', ['placa_id' => 'AF-AUTH-EQ', 'analista_id' => $usuario->id]);

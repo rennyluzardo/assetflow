@@ -129,7 +129,48 @@ it('filtra las intervenciones por rango temporal', function () {
     Sanctum::actingAs($admin);
 
     expect($this->getJson('/api/dashboard?periodo=hoy')->json('data.kpis.intervenciones_periodo'))->toBe(1);
-    expect($this->getJson('/api/dashboard?periodo=mes')->json('data.kpis.intervenciones_periodo'))->toBe(2);
+    // `periodo=anio` captura ambos registros con independencia del día del mes.
+    expect($this->getJson('/api/dashboard?periodo=anio')->json('data.kpis.intervenciones_periodo'))->toBe(2);
+});
+
+it('prioriza el rango explícito de fechas sobre el periodo', function () {
+    $admin = User::factory()->create(['name' => 'Administrador']);
+    $admin->assignRole('admin');
+    $admin->givePermissionTo('dashboard.ver_solo_propio');
+
+    InventarioGeneral::factory()->create([
+        'analista_intervencion' => $admin->id,
+        'modulo_intervencion' => 'equipos',
+        'estado_actual' => 'COMPLETADO',
+        'intervenido' => true,
+        'fecha_intervencion' => now(),
+    ]);
+
+    InventarioGeneral::factory()->create([
+        'analista_intervencion' => $admin->id,
+        'modulo_intervencion' => 'equipos',
+        'estado_actual' => 'COMPLETADO',
+        'intervenido' => true,
+        'fecha_intervencion' => now()->subDays(10),
+    ]);
+
+    Sanctum::actingAs($admin);
+
+    $hoy = now()->toDateString();
+    $hace10 = now()->subDays(10)->toDateString();
+
+    // `periodo=anio` cubriría ambas intervenciones; el rango explícito de hoy lo restringe a 1.
+    expect(
+        $this->getJson("/api/dashboard?periodo=anio&fecha_inicio={$hoy}&fecha_fin={$hoy}")
+            ->assertOk()
+            ->json('data.kpis.intervenciones_periodo'),
+    )->toBe(1);
+
+    expect(
+        $this->getJson("/api/dashboard?periodo=anio&fecha_inicio={$hace10}&fecha_fin={$hoy}")
+            ->assertOk()
+            ->json('data.kpis.intervenciones_periodo'),
+    )->toBe(2);
 });
 
 it('exporta una bitácora CSV con la estructura de columnas esperada', function () {
@@ -184,4 +225,112 @@ it('exporta una bitácora CSV con la estructura de columnas esperada', function 
     expect($contenido)->toContain('AF-DASH-CSV');
     expect($contenido)->toContain('TR-777');
     expect($contenido)->toContain('Garantía');
+});
+
+it('calcula el SLA de 4 días (fecha_cargue -> fecha_intervencion)', function () {
+    $admin = User::factory()->create(['name' => 'Administrador']);
+    $admin->assignRole('admin');
+    $admin->givePermissionTo('dashboard.ver_solo_propio');
+
+    $a = User::factory()->create(['name' => 'Analista A']);
+
+    // Dentro del SLA: cargue hoy, intervención hoy (0 días).
+    InventarioGeneral::factory()->create([
+        'analista_intervencion' => $a->id,
+        'modulo_intervencion' => 'equipos',
+        'estado_actual' => 'COMPLETADO',
+        'intervenido' => true,
+        'fecha_cargue' => now(),
+        'fecha_intervencion' => now(),
+    ]);
+
+    // Fuera del SLA: cargue hace 10 días, intervención hoy (10 días).
+    InventarioGeneral::factory()->create([
+        'analista_intervencion' => $a->id,
+        'modulo_intervencion' => 'equipos',
+        'estado_actual' => 'COMPLETADO',
+        'intervenido' => true,
+        'fecha_cargue' => now()->subDays(10),
+        'fecha_intervencion' => now(),
+    ]);
+
+    Sanctum::actingAs($admin);
+
+    $respuesta = $this->getJson('/api/dashboard?periodo=hoy')->assertOk();
+
+    expect($respuesta->json('data.sla_dias'))->toBe(4);
+    expect($respuesta->json('data.productividad.global.sla.total'))->toBe(2);
+    expect($respuesta->json('data.productividad.global.sla.dentro'))->toBe(1);
+    expect($respuesta->json('data.productividad.global.sla.porcentaje'))->toEqual(50.0);
+
+    $analista = collect($respuesta->json('data.productividad.por_analista'))
+        ->firstWhere('analista_id', $a->id);
+
+    expect($analista['sla'])->toMatchArray(['dentro' => 1, 'total' => 2]);
+});
+
+it('otorga el bono máximo (15%) cuando la productividad supera el 87%', function () {
+    $admin = User::factory()->create(['name' => 'Administrador']);
+    $admin->assignRole('admin');
+    $admin->givePermissionTo('dashboard.ver_solo_propio');
+
+    $a = User::factory()->create(['name' => 'Analista A']);
+
+    // 9 intervenciones en el día: 9/10 = 90% -> bono 15%.
+    for ($i = 0; $i < 9; $i++) {
+        InventarioGeneral::factory()->create([
+            'analista_intervencion' => $a->id,
+            'modulo_intervencion' => 'equipos',
+            'estado_actual' => 'COMPLETADO',
+            'intervenido' => true,
+            'fecha_cargue' => now(),
+            'fecha_intervencion' => now(),
+        ]);
+    }
+
+    Sanctum::actingAs($admin);
+
+    $respuesta = $this->getJson('/api/dashboard?periodo=hoy')->assertOk();
+
+    expect($respuesta->json('data.productividad.global.porcentaje'))->toEqual(90.0);
+    expect($respuesta->json('data.productividad.global.bono'))->toBe(15);
+
+    $analista = collect($respuesta->json('data.productividad.por_analista'))
+        ->firstWhere('analista_id', $a->id);
+
+    expect($analista['porcentaje'])->toEqual(90.0);
+    expect($analista['bono'])->toBe(15);
+});
+
+it('filtra las métricas por tipo de equipo (CPU / PORTATIL)', function () {
+    $admin = User::factory()->create(['name' => 'Administrador']);
+    $admin->assignRole('admin');
+    $admin->givePermissionTo('dashboard.ver_solo_propio');
+
+    InventarioGeneral::factory()->create([
+        'descripcion' => 'CPU',
+        'analista_intervencion' => $admin->id,
+        'modulo_intervencion' => 'equipos',
+        'estado_actual' => 'COMPLETADO',
+        'intervenido' => true,
+        'fecha_intervencion' => now(),
+    ]);
+
+    InventarioGeneral::factory()->create([
+        'descripcion' => 'PORTATIL',
+        'analista_intervencion' => $admin->id,
+        'modulo_intervencion' => 'portatiles',
+        'estado_actual' => 'INTERVENIDO',
+        'intervenido' => true,
+        'fecha_intervencion' => now(),
+    ]);
+
+    Sanctum::actingAs($admin);
+
+    expect($this->getJson('/api/dashboard?periodo=anio&tipo_equipo=CPU')->json('data.kpis.total_inventario'))
+        ->toBe(1);
+    expect($this->getJson('/api/dashboard?periodo=anio&tipo_equipo=PORTATIL')->json('data.kpis.total_inventario'))
+        ->toBe(1);
+    expect($this->getJson('/api/dashboard?periodo=anio&tipo_equipo=CPU')->json('data.kpis.intervenciones_periodo'))
+        ->toBe(1);
 });

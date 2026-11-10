@@ -16,6 +16,15 @@ import type {
 } from '@/features/portatiles/types'
 import type { TrazabilidadResponse } from '@/features/trazabilidad/types'
 import type { DashboardParams, DashboardResponse } from '@/features/dashboard/types'
+import type {
+  EquipoTrasladoBusqueda,
+  RecibirTrasladoResponse,
+  RegistrarTrasladoPayload,
+  Traslado,
+  TrasladoEquiposResponse,
+  TrasladoListaResponse,
+  TrasladoListaParams,
+} from '@/features/traslados/types'
 
 const TOKEN_KEY = 'assetflow_token'
 
@@ -125,9 +134,26 @@ export const api = {
   },
 
   async registrarEquipo(payload: RegistrarEquipoPayload): Promise<EquipoRegistro> {
+    const form = new FormData()
+    form.append('placa_id', payload.placa_id)
+    form.append('tipo_gestion', payload.tipo_gestion)
+    if (payload.requiere_soplado_o_pasta !== undefined) {
+      appendBoolean(form, 'requiere_soplado_o_pasta', payload.requiere_soplado_o_pasta)
+    }
+    if (payload.esta_funcional !== undefined) appendBoolean(form, 'esta_funcional', payload.esta_funcional)
+    if (payload.tiene_garantia !== undefined) appendBoolean(form, 'tiene_garantia', payload.tiene_garantia)
+    if (payload.hay_pieza !== undefined) appendBoolean(form, 'hay_pieza', payload.hay_pieza)
+    if (payload.motivo_baja) form.append('motivo_baja', payload.motivo_baja)
+    if (payload.serial_disco) form.append('serial_disco', payload.serial_disco)
+    if (payload.ticket_garantia) form.append('ticket_garantia', payload.ticket_garantia)
+    if (payload.pieza_garantia) form.append('pieza_garantia', payload.pieza_garantia)
+    form.append('ubicacion_destino', payload.ubicacion_destino)
+    if (payload.observaciones) form.append('observaciones', payload.observaciones)
+    if (payload.foto_equipo) form.append('foto_equipo', payload.foto_equipo)
+
     const res = await request<{ data: EquipoRegistro }>('/equipos', {
       method: 'POST',
-      body: JSON.stringify(payload),
+      body: form,
     })
     return res.data
   },
@@ -184,6 +210,7 @@ export const api = {
   async procesarCargueMasivo(payload: ProcesarCarguePayload): Promise<CargueResultado> {
     const form = new FormData()
     form.append('num_traslado', payload.num_traslado)
+    form.append('ubicacion_origen', payload.ubicacion_origen)
     form.append('archivo', payload.archivo)
 
     const res = await request<{ data: CargueResultado }>('/cargue-masivo', {
@@ -236,11 +263,54 @@ export const api = {
     const query = new URLSearchParams()
     if (params.periodo) query.set('periodo', params.periodo)
     if (params.modulo) query.set('modulo', params.modulo)
+    if (params.tipo_equipo) query.set('tipo_equipo', params.tipo_equipo)
     if (params.estado) query.set('estado', params.estado)
+    if (params.fecha_inicio) query.set('fecha_inicio', params.fecha_inicio)
+    if (params.fecha_fin) query.set('fecha_fin', params.fecha_fin)
 
     const queryString = query.toString()
     const res = await request<{ data: DashboardResponse }>(
       `/dashboard${queryString ? `?${queryString}` : ''}`,
+    )
+    return res.data
+  },
+
+  async listarTraslados(params: TrasladoListaParams = {}): Promise<TrasladoListaResponse> {
+    const query = new URLSearchParams()
+    if (params.page) query.set('page', String(params.page))
+    if (params.per_page) query.set('per_page', String(params.per_page))
+    if (params.estado) query.set('estado', params.estado)
+
+    const queryString = query.toString()
+    return request<TrasladoListaResponse>(`/traslados${queryString ? `?${queryString}` : ''}`)
+  },
+
+  async registrarTraslado(payload: RegistrarTrasladoPayload): Promise<Traslado> {
+    const res = await request<{ data: Traslado }>('/traslados', {
+      method: 'POST',
+      body: JSON.stringify(payload),
+    })
+    return res.data
+  },
+
+  async buscarEquipoTraslado(placaId: string): Promise<EquipoTrasladoBusqueda> {
+    const res = await request<{ data: EquipoTrasladoBusqueda }>(
+      `/traslados/buscar/${encodeURIComponent(placaId)}`,
+    )
+    return res.data
+  },
+
+  async listarEquiposTraslado(codigo: string): Promise<TrasladoEquiposResponse> {
+    const res = await request<{ data: TrasladoEquiposResponse }>(
+      `/traslados/${encodeURIComponent(codigo)}/equipos`,
+    )
+    return res.data
+  },
+
+  async recibirTraslado(codigo: string): Promise<RecibirTrasladoResponse> {
+    const res = await request<{ data: RecibirTrasladoResponse }>(
+      `/traslados/${encodeURIComponent(codigo)}/recibir`,
+      { method: 'POST' },
     )
     return res.data
   },

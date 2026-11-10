@@ -7,6 +7,7 @@ use App\Http\Requests\Equipos\TransicionarEquipoRequest;
 use App\Services\Equipos\CpuStateMachineService;
 use App\Services\Equipos\EquipoService;
 use Illuminate\Http\JsonResponse;
+use Illuminate\Support\Str;
 
 class EquiposController extends Controller
 {
@@ -22,14 +23,34 @@ class EquiposController extends Controller
 
     public function store(RegistrarEquipoRequest $request): JsonResponse
     {
+        $this->equipos->asegurarIntervenible($request->validated('placa_id'), $request->user());
+
         $tipo = $request->tipoGestion();
         $destino = $request->destino();
         $respuestas = $request->respuestas();
+        $datos = $request->validated();
 
-        $estado = $this->stateMachine->resolverEstado($tipo, $respuestas);
-        $this->stateMachine->validarDestino($tipo, $respuestas, $destino);
+        if ($foto = $request->file('foto_equipo')) {
+            $datos['foto_equipo'] = $foto->storeAs(
+                'equipos',
+                (string) Str::uuid().'.'.$foto->extension(),
+                'public',
+            );
+        } else {
+            unset($datos['foto_equipo']);
+        }
 
-        $equipo = $this->equipos->registrar($request->validated(), $estado, $destino, $request->user()->id);
+        $estado = $this->stateMachine->resolverEstado($tipo, $datos);
+        $this->stateMachine->validarDestino($tipo, $datos, $destino);
+
+        $auto = $this->stateMachine->camposAutomaticos($tipo, $respuestas);
+
+        $equipo = $this->equipos->registrar(
+            array_merge($datos, $auto),
+            $estado,
+            $destino,
+            $request->user()->id,
+        );
 
         return response()->json(['data' => $equipo], 201);
     }

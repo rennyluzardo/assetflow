@@ -6,10 +6,30 @@ use App\Enums\EstadoEquipoEnum;
 use App\Enums\UbicacionDestinoEnum;
 use App\Models\Equipo;
 use App\Models\InventarioGeneral;
+use App\Models\User;
 use Illuminate\Validation\ValidationException;
 
 final class EquipoService
 {
+    /**
+     * Bloquea una nueva gestión sobre un activo ya intervenido salvo que el
+     * analista tenga rol `admin` (re-intervención autorizada).
+     */
+    public function asegurarIntervenible(string $placaId, ?User $usuario): void
+    {
+        if ($usuario?->hasRole('admin')) {
+            return;
+        }
+
+        $inventario = InventarioGeneral::where('placa_id', $placaId)->first();
+
+        if ($inventario?->intervenido) {
+            throw ValidationException::withMessages([
+                'placa_id' => 'Este equipo ya fue intervenido. Solo un administrador puede autorizar una nueva gestión.',
+            ]);
+        }
+    }
+
     public function buscar(string $placaId): array
     {
         $inventario = InventarioGeneral::where('placa_id', $placaId)->firstOrFail();
@@ -74,6 +94,10 @@ final class EquipoService
             'estado' => $estado,
             'foto_equipo' => $datos['foto_equipo'] ?? null,
             'observaciones' => $datos['observaciones'] ?? null,
+            'motivo_baja' => $datos['motivo_baja'] ?? null,
+            'serial_disco' => $datos['serial_disco'] ?? null,
+            'ticket_garantia' => $datos['ticket_garantia'] ?? null,
+            'pieza_garantia' => $datos['pieza_garantia'] ?? null,
             'analista_id' => $analistaId,
         ]);
 

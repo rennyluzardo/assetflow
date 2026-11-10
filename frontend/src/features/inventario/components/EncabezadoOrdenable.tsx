@@ -19,7 +19,7 @@ export function EncabezadoOrdenable({ header }: { header: InventarioEncabezado }
     : flexRender(header.column.columnDef.header, header.getContext())
 
   return (
-    <th scope="col" aria-sort={ariaSort} className={cn('px-3 py-2.5', ALINEACION[header.column.id])}>
+    <th scope="col" aria-sort={ariaSort} className={cn('sticky top-0 z-10 bg-muted px-3 py-2.5', ALINEACION[header.column.id])}>
       {puedeOrdenar ? (
         <button
           type="button"

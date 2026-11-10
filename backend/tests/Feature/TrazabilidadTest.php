@@ -52,7 +52,9 @@ it('unifica la línea de tiempo de CPU y soplado en orden cronológico', functio
         'placa_id' => 'AF-TRZ-CPU',
         'tipo_gestion' => 'NOVEDAD',
         'requiere_soplado_o_pasta' => true,
+        'observaciones' => 'Novedad con acumulación de polvo.',
         'ubicacion_destino' => 'SALA_DE_GARANTIA',
+        'foto_equipo' => UploadedFile::fake()->image('evidencia.jpg'),
     ])->assertCreated();
 
     $this->post('/api/soplado', [

@@ -8,6 +8,7 @@ use App\Http\Controllers\InventarioController;
 use App\Http\Controllers\PortatilesController;
 use App\Http\Controllers\SopladoController;
 use App\Http\Controllers\TrazabilidadController;
+use App\Http\Controllers\TrasladoController;
 use Illuminate\Support\Facades\Route;
 
 Route::post('/login', [AuthController::class, 'login'])->name('auth.login');
@@ -75,4 +76,24 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::get('/dashboard/exportar-csv', [DashboardController::class, 'exportarCsv'])
         ->middleware('permission:dashboard.ver_solo_propio')
         ->name('dashboard.exportar-csv');
+
+    Route::get('/traslados', [TrasladoController::class, 'index'])
+        ->middleware('permission:traslados.ver')
+        ->name('traslados.index');
+
+    Route::get('/traslados/buscar/{placaId}', [TrasladoController::class, 'buscar'])
+        ->middleware('permission:traslados.ver')
+        ->name('traslados.buscar');
+
+    Route::get('/traslados/{codigo}/equipos', [TrasladoController::class, 'equipos'])
+        ->middleware('permission:traslados.ver')
+        ->name('traslados.equipos');
+
+    Route::post('/traslados', [TrasladoController::class, 'store'])
+        ->middleware('permission:traslados.registrar')
+        ->name('traslados.store');
+
+    Route::post('/traslados/{codigo}/recibir', [TrasladoController::class, 'recibir'])
+        ->middleware('permission:traslados.registrar')
+        ->name('traslados.recibir');
 });

@@ -18,7 +18,10 @@ export async function descargarBitacoraCsv(params: DashboardParams): Promise<voi
   const query = new URLSearchParams()
   if (params.periodo) query.set('periodo', params.periodo)
   if (params.modulo) query.set('modulo', params.modulo)
+  if (params.tipo_equipo) query.set('tipo_equipo', params.tipo_equipo)
   if (params.estado) query.set('estado', params.estado)
+  if (params.fecha_inicio) query.set('fecha_inicio', params.fecha_inicio)
+  if (params.fecha_fin) query.set('fecha_fin', params.fecha_fin)
   const qs = query.toString()
 
   const token = getToken()

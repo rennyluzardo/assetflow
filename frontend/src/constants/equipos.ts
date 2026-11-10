@@ -15,12 +15,12 @@ export const ESTADOS = [
   'POR_REACONDICIONAR',
   'COMPLETADO',
   'INTERVENIDO',
+  'REPOTENCIADO',
   'BAJA_NO_SIRVE',
-  'REPARADO',
 ] as const
 export type EstadoEquipo = (typeof ESTADOS)[number]
 
-export const TIPOS_GESTION = ['NOVEDAD', 'DIAGNOSTICO', 'INTERVENCION'] as const
+export const TIPOS_GESTION = ['NOVEDAD', 'DIAGNOSTICO', 'INTERVENCION', 'BAJA'] as const
 export type TipoGestion = (typeof TIPOS_GESTION)[number]
 
 export const UBICACION_LABELS: Record<UbicacionDestino, string> = {
@@ -36,22 +36,23 @@ export const ESTADO_LABELS: Record<EstadoEquipo, string> = {
   POR_REACONDICIONAR: 'Por reacondicionar',
   COMPLETADO: 'Completado',
   INTERVENIDO: 'Intervenido',
+  REPOTENCIADO: 'Repotenciado',
   BAJA_NO_SIRVE: 'Baja (No sirve)',
-  REPARADO: 'Reparado',
 }
 
 export const TIPO_GESTION_LABELS: Record<TipoGestion, string> = {
   NOVEDAD: 'Novedad',
   DIAGNOSTICO: 'Diagnóstico',
   INTERVENCION: 'Intervención',
+  BAJA: 'Baja',
 }
 
 /** Estados terminales: cierran el inventario (intervenido = 1). */
 export const ESTADOS_TERMINALES: ReadonlySet<EstadoEquipo> = new Set([
   'COMPLETADO',
   'INTERVENIDO',
+  'REPOTENCIADO',
   'BAJA_NO_SIRVE',
-  'REPARADO',
 ])
 
 /** Estados intermedios: mantienen el flujo abierto (intervenido = 0). */
@@ -67,7 +68,7 @@ export type EstadoSemantica = 'verde' | 'ambar' | 'terracota'
 export const ESTADO_SEMANTICA: Record<EstadoEquipo, EstadoSemantica> = {
   COMPLETADO: 'verde',
   INTERVENIDO: 'verde',
-  REPARADO: 'verde',
+  REPOTENCIADO: 'verde',
   POR_SOPLAR: 'ambar',
   PENDIENTE_GARANTIA: 'ambar',
   POR_REACONDICIONAR: 'ambar',

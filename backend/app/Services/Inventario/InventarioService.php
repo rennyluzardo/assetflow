@@ -67,7 +67,7 @@ final class InventarioService
             $request->validated('direction'),
         );
 
-        $paginator = $query->paginate((int) $request->validated('per_page', 250));
+        $paginator = $query->paginate((int) $request->validated('per_page', 10));
 
         return [
             'data' => $paginator->items(),

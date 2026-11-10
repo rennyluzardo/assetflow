@@ -7,6 +7,7 @@ use App\Models\Equipo;
 use App\Models\GarantiaPortatil;
 use App\Models\InventarioGeneral;
 use App\Models\SopladoRegistro;
+use App\Models\Traslado;
 use App\Models\User;
 use App\Support\InventarioE2eFixtures;
 use Illuminate\Console\Command;
@@ -30,6 +31,12 @@ class ResetE2eFixturesCommand extends Command
         $placas = InventarioE2eFixtures::placas();
 
         DB::transaction(function () use ($placas): void {
+            // Cabeceras de traslado que la suite E2E crea vía la modal de
+            // /traslados (código TR-E2E-*): se eliminan físicamente para no
+            // dejar basura en la base de datos de desarrollo (misma convención
+            // `forceDelete` que el resto del reseteo de fixtures).
+            Traslado::where('codigo', 'LIKE', 'TR-E2E-%')->forceDelete();
+
             // Hijos primero: soplado_registros cuelga de equipos; ambos y
             // garantia_portatil cuelgan de inventario_general.
             $equipoIds = Equipo::withTrashed()->whereIn('placa_id', $placas)->pluck('id');

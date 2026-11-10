@@ -13,8 +13,8 @@ enum ClasificacionPortatilEnum: string
     case FUNCIONAL = 'FUNCIONAL';
     case NOVEDAD = 'NOVEDAD';
     case GARANTIA = 'GARANTIA';
-    case DANO_REPARABLE = 'DANO_REPARABLE';
     case BAJA = 'BAJA';
+    case INTERVENCION = 'INTERVENCION';
 
     public function label(): string
     {
@@ -22,8 +22,8 @@ enum ClasificacionPortatilEnum: string
             self::FUNCIONAL => 'Funcional',
             self::NOVEDAD => 'Novedad',
             self::GARANTIA => 'Garantía',
-            self::DANO_REPARABLE => 'Daño reparable',
             self::BAJA => 'Baja',
+            self::INTERVENCION => 'Intervención',
         };
     }
 }

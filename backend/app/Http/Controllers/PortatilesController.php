@@ -31,6 +31,8 @@ class PortatilesController extends Controller
 
     public function store(RegistrarPortatilRequest $request): JsonResponse
     {
+        $this->portatiles->asegurarIntervenible($request->validated('placa_id'), $request->user());
+
         $clasificacion = $request->clasificacion();
         $destino = $request->destino();
 

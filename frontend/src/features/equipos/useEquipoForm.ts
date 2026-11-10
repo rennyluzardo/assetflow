@@ -7,8 +7,8 @@ import type {
   TransicionarEquipoPayload,
 } from '@/types/equipos'
 import { ApiError } from '@/lib/api'
-import { evaluarCierre, evaluarFlujo, esFlujoReanudable } from './cpuFlowRules'
-import type { RespuestaClinicaKey, RespuestasClinicas } from './cpuFlowRules'
+import { evaluarCierre, evaluarFlujo, esFlujoReanudable, fotoEquipoRequerida } from './cpuFlowRules'
+import type { CampoTextoKey, RespuestaClinicaKey, RespuestasClinicas } from './cpuFlowRules'
 import { useRegistrarEquipo, useTransicionarEquipo } from './api'
 
 interface UseEquipoFormOptions {
@@ -24,6 +24,9 @@ export interface EquipoFormApi {
   respuestas: RespuestasClinicas
   responder: (clave: RespuestaClinicaKey, valor: boolean) => void
   preguntaActual: RespuestaClinicaKey | null
+  textosRequeridos: CampoTextoKey[]
+  textos: Record<CampoTextoKey, string>
+  setTexto: (clave: CampoTextoKey, valor: string) => void
   destinos: UbicacionDestino[]
   destino: UbicacionDestino | null
   setDestino: (destino: UbicacionDestino) => void
@@ -31,6 +34,11 @@ export interface EquipoFormApi {
   completo: boolean
   observaciones: string
   setObservaciones: (value: string) => void
+  observacionesRequeridas: boolean
+  foto: File | null
+  setFoto: (file: File | null) => void
+  fotoRequerida: boolean
+  puedeGuardar: boolean
   guardar: () => void
   guardando: boolean
   errorGuardar: ApiError | null
@@ -47,22 +55,39 @@ export function useEquipoForm({ equipo, onGuardado }: UseEquipoFormOptions): Equ
 
   const [tipoGestion, setTipoGestionState] = useState<TipoGestion | null>(null)
   const [respuestas, setRespuestas] = useState<RespuestasClinicas>({})
+  const [textos, setTextos] = useState<Record<CampoTextoKey, string>>({
+    motivo_baja: '',
+    serial_disco: '',
+    ticket_garantia: '',
+    pieza_garantia: '',
+  })
   const [destino, setDestinoState] = useState<UbicacionDestino | null>(null)
   const [observaciones, setObservaciones] = useState('')
+  const [foto, setFoto] = useState<File | null>(null)
 
   const registrar = useRegistrarEquipo()
   const transicionar = useTransicionarEquipo()
 
   const evaluacion = reanudable
     ? evaluarCierre(estadoReanudacion!, respuestas)
-    : evaluarFlujo(tipoGestion, respuestas)
+    : evaluarFlujo(tipoGestion, respuestas, textos)
 
   const preguntaActual = evaluacion.pregunta
+  const observacionesRequeridas = tipoGestion === 'NOVEDAD'
+  const observacionesCompletas = !observacionesRequeridas || observaciones.trim() !== ''
+  const fotoRequerida = fotoEquipoRequerida(tipoGestion)
+  const fotoCompleta = !fotoRequerida || foto !== null
+
+  const puedeGuardar =
+    evaluacion.completo && destino !== null && observacionesCompletas && fotoCompleta
 
   const setTipoGestion = (tipo: TipoGestion) => {
     setTipoGestionState(tipo)
     setRespuestas({})
+    setTextos({ motivo_baja: '', serial_disco: '', ticket_garantia: '', pieza_garantia: '' })
     setDestinoState(null)
+    setObservaciones('')
+    setFoto(null)
   }
 
   const responder = (clave: RespuestaClinicaKey, valor: boolean) => {
@@ -70,8 +95,13 @@ export function useEquipoForm({ equipo, onGuardado }: UseEquipoFormOptions): Equ
     setDestinoState(null)
   }
 
+  const setTexto = (clave: CampoTextoKey, valor: string) => {
+    setTextos((previos) => ({ ...previos, [clave]: valor }))
+    setDestinoState(null)
+  }
+
   const guardar = () => {
-    if (!evaluacion.completo || destino === null) return
+    if (!evaluacion.completo || destino === null || !observacionesCompletas) return
 
     if (reanudable && estadoReanudacion) {
       const payload: TransicionarEquipoPayload = {
@@ -92,6 +122,13 @@ export function useEquipoForm({ equipo, onGuardado }: UseEquipoFormOptions): Equ
       ubicacion_destino: destino,
       observaciones: observaciones.trim() ? observaciones.trim() : undefined,
     }
+
+    if (textos.motivo_baja.trim()) payload.motivo_baja = textos.motivo_baja.trim()
+    if (textos.serial_disco.trim()) payload.serial_disco = textos.serial_disco.trim()
+    if (textos.ticket_garantia.trim()) payload.ticket_garantia = textos.ticket_garantia.trim()
+    if (textos.pieza_garantia.trim()) payload.pieza_garantia = textos.pieza_garantia.trim()
+    if (foto) payload.foto_equipo = foto
+
     registrar.mutate(payload, { onSuccess: (registro) => onGuardado?.(registro) })
   }
 
@@ -103,6 +140,9 @@ export function useEquipoForm({ equipo, onGuardado }: UseEquipoFormOptions): Equ
     respuestas,
     responder,
     preguntaActual,
+    textosRequeridos: evaluacion.textosRequeridos,
+    textos,
+    setTexto,
     destinos: evaluacion.destinos,
     destino,
     setDestino: setDestinoState,
@@ -110,6 +150,11 @@ export function useEquipoForm({ equipo, onGuardado }: UseEquipoFormOptions): Equ
     completo: evaluacion.completo,
     observaciones,
     setObservaciones,
+    observacionesRequeridas,
+    foto,
+    setFoto,
+    fotoRequerida,
+    puedeGuardar,
     guardar,
     guardando: registrar.isPending || transicionar.isPending,
     errorGuardar: registrar.error ?? transicionar.error,

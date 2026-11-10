@@ -5,7 +5,7 @@ namespace App\Http\Requests\Portatiles;
 use App\Enums\CausalBajaEnum;
 use App\Enums\ClasificacionPortatilEnum;
 use App\Enums\GravedadNovedadEnum;
-use App\Enums\OrigenDanoGarantiaEnum;
+use App\Enums\SubtipoIntervencionEnum;
 use App\Enums\UbicacionDestinoEnum;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Rule;
@@ -24,16 +24,18 @@ class RegistrarPortatilRequest extends FormRequest
             'placa_id' => ['required', 'string', 'max:255', 'exists:inventario_general,placa_id'],
             'clasificacion' => ['required', new Enum(ClasificacionPortatilEnum::class)],
             'test_lenovo' => ['required', 'boolean'],
-            'serial_disco' => ['required', 'string', 'max:255'],
+            'serial_disco' => [Rule::requiredIf($this->esBaja()), 'string', 'max:255'],
             'gravedad_novedad' => [Rule::requiredIf($this->esNovedad()), new Enum(GravedadNovedadEnum::class)],
-            'origen_dano_garantia' => [Rule::requiredIf($this->esGarantia()), new Enum(OrigenDanoGarantiaEnum::class)],
             'causal_baja' => [Rule::requiredIf($this->esBaja()), new Enum(CausalBajaEnum::class)],
-            'cantidad_danos' => [Rule::requiredIf($this->necesitaCantidadDanos()), 'integer', 'min:1'],
-            'ticket_proveedor' => [Rule::requiredIf($this->esGarantiaFabrica()), 'string', 'max:255'],
+            'cantidad_danos' => [Rule::requiredIf($this->esNovedadPronunciada()), 'integer', 'min:1', 'max:4'],
+            'ticket_proveedor' => [Rule::requiredIf($this->esGarantia()), 'string', 'max:255'],
             'partes_fru' => ['nullable', 'string', 'max:255'],
             'piezas_solicitar' => [Rule::requiredIf($this->necesitaPiezasSolicitar()), 'string', 'max:5000'],
+            'pieza_es_nueva' => [Rule::requiredIf($this->esIntervencion()), 'boolean'],
+            'subtipo_intervencion' => [Rule::requiredIf($this->esIntervencion()), new Enum(SubtipoIntervencionEnum::class)],
+            'especificacion_repotenciacion' => [Rule::requiredIf($this->esRepotenciacion()), 'string', 'max:5000'],
+            'observaciones' => [Rule::requiredIf($this->esNovedad()), 'string', 'max:5000'],
             'ubicacion_destino' => ['required', new Enum(UbicacionDestinoEnum::class)],
-            'observaciones' => ['nullable', 'string', 'max:5000'],
             'foto_evidencia' => ['nullable', 'string', 'max:2048'],
         ];
     }
@@ -63,9 +65,9 @@ class RegistrarPortatilRequest extends FormRequest
         return $this->input('clasificacion') === ClasificacionPortatilEnum::BAJA->value;
     }
 
-    private function esDanoReparable(): bool
+    private function esIntervencion(): bool
     {
-        return $this->input('clasificacion') === ClasificacionPortatilEnum::DANO_REPARABLE->value;
+        return $this->input('clasificacion') === ClasificacionPortatilEnum::INTERVENCION->value;
     }
 
     private function esNovedadPronunciada(): bool
@@ -74,25 +76,14 @@ class RegistrarPortatilRequest extends FormRequest
             && $this->input('gravedad_novedad') === GravedadNovedadEnum::PRONUNCIADA->value;
     }
 
-    private function esGarantiaFabrica(): bool
+    private function esRepotenciacion(): bool
     {
-        return $this->esGarantia()
-            && $this->input('origen_dano_garantia') === OrigenDanoGarantiaEnum::FABRICA->value;
-    }
-
-    private function esGarantiaInducido(): bool
-    {
-        return $this->esGarantia()
-            && $this->input('origen_dano_garantia') === OrigenDanoGarantiaEnum::INDUCIDO->value;
-    }
-
-    private function necesitaCantidadDanos(): bool
-    {
-        return $this->esDanoReparable() || $this->esNovedadPronunciada();
+        return $this->esIntervencion()
+            && $this->input('subtipo_intervencion') === SubtipoIntervencionEnum::REPOTENCIACION->value;
     }
 
     private function necesitaPiezasSolicitar(): bool
     {
-        return $this->esDanoReparable() || $this->esNovedadPronunciada() || $this->esGarantiaInducido();
+        return $this->esNovedadPronunciada() || $this->esIntervencion() || $this->esGarantia();
     }
 }

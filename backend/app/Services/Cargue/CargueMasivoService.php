@@ -2,8 +2,10 @@
 
 namespace App\Services\Cargue;
 
+use App\Enums\SedeOperativaEnum;
 use App\Imports\CubitFilasImport;
 use App\Models\InventarioGeneral;
+use App\Models\Traslado;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\ValidationException;
@@ -67,7 +69,7 @@ final class CargueMasivoService
      *
      * @return array{num_traslado: string, insertados: int, omitidos: int, errores: list<array{fila: int, error: string}>}
      */
-    public function procesar(UploadedFile $archivo, string $numTraslado, int $usuarioCargue): array
+    public function procesar(UploadedFile $archivo, string $numTraslado, string $ubicacionOrigen, int $usuarioCargue): array
     {
         $filas = $this->leerFilas($archivo);
         $cabecera = array_shift($filas) ?? [];
@@ -111,11 +113,19 @@ final class CargueMasivoService
             $placasVistas[$datos['placa_id']] = true;
             $registros[] = [
                 'fila' => $numeroFila,
-                'registro' => $this->construirRegistro($datos, $numTraslado, $usuarioCargue),
+                'registro' => $this->construirRegistro($datos, $numTraslado, $ubicacionOrigen, $usuarioCargue),
             ];
         }
 
-        $insertados = $this->insertarMasivo($registros, $errores);
+        $insertados = 0;
+
+        // La cabecera del traslado y los activos del lote comparten transacción:
+        // o bien el lote completo queda reflejado en `/traslados` e `/inventario`,
+        // o bien nada se persiste.
+        DB::transaction(function () use ($registros, &$errores, &$insertados, $numTraslado, $ubicacionOrigen, $usuarioCargue): void {
+            $this->crearTraslado($numTraslado, $ubicacionOrigen, $usuarioCargue);
+            $insertados = $this->insertarMasivo($registros, $errores);
+        });
 
         return [
             'num_traslado' => $numTraslado,
@@ -299,7 +309,7 @@ final class CargueMasivoService
      * @param  array<string, string>  $datos
      * @return array<string, mixed>
      */
-    private function construirRegistro(array $datos, string $numTraslado, int $usuarioCargue): array
+    private function construirRegistro(array $datos, string $numTraslado, string $ubicacionOrigen, int $usuarioCargue): array
     {
         $ahora = now();
 
@@ -316,6 +326,10 @@ final class CargueMasivoService
             'num_traslado' => $numTraslado,
             'estado_actual' => null,
             'intervenido' => false,
+            // Origen físico del lote (manual, no depende de la "Zona" de Cubit)
+            // y fecha de cargue para el cálculo de SLA del dashboard.
+            'ubicacion_origen' => $ubicacionOrigen,
+            'fecha_cargue' => $ahora,
             'usuario_cargue' => $usuarioCargue,
             'analista_intervencion' => null,
             'modulo_intervencion' => null,
@@ -358,12 +372,30 @@ final class CargueMasivoService
             $nuevos[] = $entrada['registro'];
         }
 
-        DB::transaction(function () use ($nuevos): void {
-            foreach (array_chunk($nuevos, 500) as $lote) {
-                DB::table('inventario_general')->insert($lote);
-            }
-        });
+        foreach (array_chunk($nuevos, 500) as $lote) {
+            DB::table('inventario_general')->insert($lote);
+        }
 
         return count($nuevos);
+    }
+
+    /**
+     * Garantiza la cabecera del traslado en `/traslados` para el lote ingerido.
+     * Usa `firstOrCreate` por `codigo` para no duplicar cabeceras ya existentes
+     * y no sobrescribir una ruta registrada manualmente con anterioridad.
+     */
+    private function crearTraslado(string $numTraslado, string $ubicacionOrigen, int $usuarioCargue): void
+    {
+        Traslado::firstOrCreate(
+            ['codigo' => $numTraslado],
+            [
+                'zona_origen' => SedeOperativaEnum::desdeOrigen($ubicacionOrigen),
+                'ubicacion_origen_exacta' => $ubicacionOrigen,
+                'zona_destino' => SedeOperativaEnum::BOGOTA,
+                'ubicacion_destino_exacta' => null,
+                'estado' => 'EN_TRANSITO',
+                'analista_id' => $usuarioCargue,
+            ],
+        );
     }
 }

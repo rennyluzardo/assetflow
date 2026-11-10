@@ -24,6 +24,7 @@ class InventarioGeneralFactory extends Factory
             'num_traslado' => 'TR-'.strtoupper($this->faker->bothify('####')),
             'estado_actual' => null,
             'intervenido' => false,
+            'fecha_cargue' => now(),
             'usuario_cargue' => User::factory(),
         ];
     }

@@ -5,9 +5,13 @@ import { ApiError } from '@/lib/api'
 import { ScannerInput } from '@/components/ScannerInput'
 import type { ScannerStatus } from '@/components/ScannerInput'
 import { StatusBadge } from '@/components/StatusBadge'
+import { useAuth } from '@/features/auth/AuthContext'
 import { useBuscarEquipo } from './api'
 import { EquipoResumen } from './EquipoResumen'
 import { EquipoForm } from './EquipoForm'
+
+const MENSAJE_REINTERVENCION =
+  'Este equipo ya fue intervenido. Solo un administrador puede autorizar una nueva gestión.'
 
 /**
  * Clasifica el resultado del escaneo en la semántica visual nórdica:
@@ -15,7 +19,10 @@ import { EquipoForm } from './EquipoForm'
  *  - ámbar  → estado intermedio/abierto (reanudable aquí, o en tránsito a /soplado);
  *  - terracota → bloqueo (ya cerrado / no requiere pasar por esta estación).
  */
-function veredicto(equipo: InventarioBusqueda): {
+function veredicto(
+  equipo: InventarioBusqueda,
+  esAdmin: boolean,
+): {
   status: ScannerStatus
   message: string
   procesable: boolean
@@ -40,15 +47,25 @@ function veredicto(equipo: InventarioBusqueda): {
         procesable: false,
       }
     default:
+      if (esAdmin) {
+        return {
+          status: 'warning',
+          message: `Equipo ya intervenido (${ESTADO_LABELS[activo.estado]}). Puede autorizar una nueva gestión.`,
+          procesable: true,
+        }
+      }
       return {
         status: 'error',
-        message: `Equipo ya intervenido (${ESTADO_LABELS[activo.estado]}).`,
+        message: MENSAJE_REINTERVENCION,
         procesable: false,
       }
   }
 }
 
 export function EquiposScreen() {
+  const { session } = useAuth()
+  const esAdmin = session?.roles.includes('admin') ?? false
+
   const [placaId, setPlacaId] = useState('')
   const [consultado, setConsultado] = useState(false)
   const [ultimoRegistro, setUltimoRegistro] = useState<EquipoRegistro | null>(null)
@@ -67,7 +84,7 @@ export function EquiposScreen() {
     status = 'error'
     message = buscar.error instanceof ApiError ? buscar.error.message : 'No se pudo consultar el inventario.'
   } else if (equipo) {
-    const v = veredicto(equipo)
+    const v = veredicto(equipo, esAdmin)
     status = v.status
     message = v.message
     procesable = v.procesable

@@ -22,6 +22,19 @@ export interface ScannerInputProps {
   'data-testid'?: string
 }
 
+/**
+ * Limpia el texto crudo que emite la pistola lectora y extrae únicamente la
+ * placa (Identificador 1). Las ráfagas de escaneo suelen traer prefijos/sufijos
+ * de ruido (fechas, seriales, saltos de línea); aquí se localiza el token con
+ * formato de placa `AF-XXXX` y se descarta el resto.
+ */
+function limpiarEscaneo(raw: string): string {
+  const texto = raw.trim()
+  const placa = texto.match(/\bAF-[A-Z0-9-]+\b/i)
+  if (placa) return placa[0].toUpperCase()
+  return texto
+}
+
 function bordePorEstado(status: ScannerStatus): string {
   switch (status) {
     case 'success':
@@ -109,7 +122,7 @@ export function ScannerInput({
   const handleKeyDown = (event: KeyboardEvent<HTMLInputElement>) => {
     if (event.key === 'Enter' && !disabled) {
       event.preventDefault()
-      const placa = value.trim()
+      const placa = limpiarEscaneo(value)
       if (placa.length > 0) onSubmit(placa)
     }
   }

@@ -28,7 +28,7 @@ export const Route = createFileRoute('/inventario')({
       search: texto(search.search),
       num_traslado: texto(search.num_traslado),
       estado_actual: texto(search.estado_actual),
-      per_page: entero(search.per_page, 250),
+      per_page: entero(search.per_page, 10),
       page: entero(search.page, 1),
       sort,
       direction: sort ? normalizarDireccion(search.direction) : '',

@@ -1,6 +1,7 @@
 /** Cuerpo multipart de `POST /api/cargue-masivo`. */
 export interface ProcesarCarguePayload {
   num_traslado: string
+  ubicacion_origen: string
   archivo: File
 }
 

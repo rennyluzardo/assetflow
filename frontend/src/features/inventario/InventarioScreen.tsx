@@ -21,8 +21,8 @@ export function InventarioScreen() {
   })
 
   return (
-    <div className="flex flex-col gap-4 p-6">
-      <header className="flex items-end justify-between gap-4">
+    <div className="flex h-dvh flex-col gap-4 overflow-hidden p-6">
+      <header className="flex shrink-0 items-end justify-between gap-4">
         <div>
           <h1 className="text-2xl font-semibold tracking-tight text-slate-900">
             Inventario General

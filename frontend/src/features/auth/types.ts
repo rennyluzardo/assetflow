@@ -2,6 +2,7 @@ export interface AuthUser {
   id: number
   name: string
   email: string
+  sede?: string | null
 }
 
 /** Sesión autenticada devuelta por `GET /api/me` (y embebida en el login sin el token). */

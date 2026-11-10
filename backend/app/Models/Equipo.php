@@ -36,6 +36,10 @@ class Equipo extends Model
         'estado',
         'foto_equipo',
         'observaciones',
+        'motivo_baja',
+        'serial_disco',
+        'ticket_garantia',
+        'pieza_garantia',
         'analista_id',
     ];
 

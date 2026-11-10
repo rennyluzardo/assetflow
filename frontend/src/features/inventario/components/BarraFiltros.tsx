@@ -1,7 +1,7 @@
 import { ESTADO_LABELS, ESTADOS } from '@/constants/equipos'
 import { SelectFiltro } from './SelectFiltro'
 
-export const TAMANIOS_PAGINA = [250, 500, 1000] as const
+export const TAMANIOS_PAGINA = [10, 25, 50] as const
 
 interface Props {
   search: string
@@ -29,7 +29,7 @@ export function BarraFiltros({
   onPerPage,
 }: Props) {
   return (
-    <div className="mx-auto flex w-full max-w-7xl flex-wrap items-center gap-3 rounded-lg border border-line bg-surface p-3">
+    <div className="mx-auto flex w-full max-w-7xl shrink-0 flex-wrap items-center gap-3 rounded-lg border border-line bg-surface p-3">
       <input
         type="search"
         value={search}
