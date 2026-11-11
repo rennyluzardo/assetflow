@@ -54,7 +54,7 @@ export function AppLayout({ children }: { children: ReactNode }) {
 
   return (
     <div className="flex min-h-screen bg-canvas text-slate-900">
-      <aside className="flex w-60 shrink-0 flex-col border-r border-line bg-surface">
+      <aside className="sticky top-0 flex h-screen w-60 shrink-0 flex-col overflow-y-auto border-r border-line bg-surface">
         <div className="flex h-16 items-center border-b border-line px-6">
           <span className="text-lg font-semibold tracking-tight">AssetFlow</span>
         </div>

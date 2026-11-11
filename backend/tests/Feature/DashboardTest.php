@@ -5,6 +5,7 @@ use App\Models\InventarioGeneral;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Laravel\Sanctum\Sanctum;
+use PhpOffice\PhpSpreadsheet\IOFactory;
 use Spatie\Permission\Models\Permission;
 use Spatie\Permission\Models\Role;
 use Spatie\Permission\PermissionRegistrar;
@@ -173,13 +174,13 @@ it('prioriza el rango explícito de fechas sobre el periodo', function () {
     )->toBe(2);
 });
 
-it('exporta una bitácora CSV con la estructura de columnas esperada', function () {
+it('exporta una bitácora XLSX con la columna Observaciones', function () {
     $admin = User::factory()->create(['name' => 'Administrador']);
     $admin->assignRole('admin');
     $admin->givePermissionTo('dashboard.ver_solo_propio');
 
     $inventario = InventarioGeneral::factory()->create([
-        'placa_id' => 'AF-DASH-CSV',
+        'placa_id' => 'AF-DASH-XLSX',
         'num_traslado' => 'TR-777',
         'referencia' => 'ThinkPad T14',
         'modulo_intervencion' => 'portatiles',
@@ -192,7 +193,7 @@ it('exporta una bitácora CSV con la estructura de columnas esperada', function 
 
     GarantiaPortatil::create([
         'inventario_general_id' => $inventario->id,
-        'placa_id' => 'AF-DASH-CSV',
+        'placa_id' => 'AF-DASH-XLSX',
         'serial' => $inventario->serial,
         'marca' => $inventario->marca,
         'referencia' => $inventario->referencia,
@@ -202,29 +203,31 @@ it('exporta una bitácora CSV con la estructura de columnas esperada', function 
         'serial_disco' => 'DISCO-1',
         'ubicacion_destino' => 'ALMACEN',
         'estado' => 'INTERVENIDO',
+        'observaciones' => 'Bisagra reemplazada en garantía de fábrica.',
         'analista_id' => $admin->id,
     ]);
 
     Sanctum::actingAs($admin);
 
-    $respuesta = $this->get('/api/dashboard/exportar-csv?periodo=anio')->assertOk();
-    $contenido = $respuesta->streamedContent();
+    $respuesta = $this->get('/api/dashboard/exportar?periodo=anio')->assertOk();
 
-    expect($contenido)->toStartWith("\xEF\xBB\xBF");
-    expect($contenido)->toContain('ID/Radicado');
-    expect($contenido)->toContain('Num Traslado');
-    expect($contenido)->toContain('Placa');
-    expect($contenido)->toContain('Serial');
-    expect($contenido)->toContain('Modulo Atendido');
-    expect($contenido)->toContain('Referencia');
-    expect($contenido)->toContain('Tipo Gestion / Clasificacion');
-    expect($contenido)->toContain('Ubicacion Destino');
-    expect($contenido)->toContain('Estado Actual');
-    expect($contenido)->toContain('Analista');
-    expect($contenido)->toContain('Fecha Intervencion');
-    expect($contenido)->toContain('AF-DASH-CSV');
-    expect($contenido)->toContain('TR-777');
-    expect($contenido)->toContain('Garantía');
+    // La descarga es un libro de cálculo .xlsx, no CSV.
+    expect($respuesta->headers->get('content-disposition'))->toContain('.xlsx');
+    expect($respuesta->headers->get('content-type'))->toContain('spreadsheetml');
+
+    $hoja = IOFactory::load($respuesta->getFile()->getPathname())
+        ->getActiveSheet();
+
+    $cabeceras = array_values($hoja->rangeToArray('A1:L1')[0]);
+    expect($cabeceras)->toContain('Observaciones');
+    expect($cabeceras)->toContain('ID/Radicado');
+    expect($cabeceras)->toContain('Num Traslado');
+
+    $valores = array_values($hoja->rangeToArray('A2:L2')[0]);
+    expect($valores)->toContain('AF-DASH-XLSX');
+    expect($valores)->toContain('TR-777');
+    expect($valores)->toContain('Garantía');
+    expect($valores)->toContain('Bisagra reemplazada en garantía de fábrica.');
 });
 
 it('calcula el SLA de 4 días (fecha_cargue -> fecha_intervencion)', function () {

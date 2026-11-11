@@ -11,10 +11,10 @@ export function useDashboard(params: DashboardParams) {
 }
 
 /**
- * Descarga la bitácora CSV con el header `Authorization: Bearer` y la guarda
- * como archivo. La API de streaming no es JSON, así que se usa `fetch` directo.
+ * Descarga la bitácora `.xlsx` con el header `Authorization: Bearer` y la
+ * guarda como archivo. La API de descarga no es JSON, así que se usa `fetch`.
  */
-export async function descargarBitacoraCsv(params: DashboardParams): Promise<void> {
+export async function descargarBitacoraXlsx(params: DashboardParams): Promise<void> {
   const query = new URLSearchParams()
   if (params.periodo) query.set('periodo', params.periodo)
   if (params.modulo) query.set('modulo', params.modulo)
@@ -25,9 +25,9 @@ export async function descargarBitacoraCsv(params: DashboardParams): Promise<voi
   const qs = query.toString()
 
   const token = getToken()
-  const res = await fetch(`/api/dashboard/exportar-csv${qs ? `?${qs}` : ''}`, {
+  const res = await fetch(`/api/dashboard/exportar${qs ? `?${qs}` : ''}`, {
     headers: {
-      Accept: 'text/csv',
+      Accept: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
       ...(token ? { Authorization: `Bearer ${token}` } : {}),
     },
   })
@@ -38,7 +38,7 @@ export async function descargarBitacoraCsv(params: DashboardParams): Promise<voi
   const url = URL.createObjectURL(blob)
   const enlace = document.createElement('a')
   enlace.href = url
-  enlace.download = 'bitacora.csv'
+  enlace.download = 'bitacora.xlsx'
   document.body.appendChild(enlace)
   enlace.click()
   enlace.remove()

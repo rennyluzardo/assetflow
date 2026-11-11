@@ -12,6 +12,7 @@ export interface EventoTrazabilidad {
   estado: EstadoEquipo | null
   foto: string | null
   detalle: string | null
+  observaciones: string | null
 }
 
 /** Ficha maestra del activo (Identificador 1 / 2 y estado actual). */

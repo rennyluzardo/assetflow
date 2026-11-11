@@ -5,6 +5,8 @@ use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Http\UploadedFile;
 use Laravel\Sanctum\Sanctum;
+use PhpOffice\PhpSpreadsheet\Spreadsheet;
+use PhpOffice\PhpSpreadsheet\Writer\Xlsx;
 use Spatie\Permission\Models\Permission;
 use Spatie\Permission\PermissionRegistrar;
 
@@ -31,6 +33,24 @@ beforeEach(function () {
 function csvCargue(string $contenido): UploadedFile
 {
     return UploadedFile::fake()->createWithContent('cargue.csv', $contenido);
+}
+
+/** Construye un archivo XLSX real a partir de una lista de filas (base-0 por índice). */
+function xlsxCargue(array $filas): UploadedFile
+{
+    $spreadsheet = new Spreadsheet();
+    $hoja = $spreadsheet->getActiveSheet();
+
+    foreach ($filas as $numeroFila => $fila) {
+        foreach (array_values($fila) as $columna => $valor) {
+            $hoja->setCellValue([$columna + 1, $numeroFila + 1], $valor);
+        }
+    }
+
+    $ruta = sys_get_temp_dir().'/cargue_'.uniqid('', true).'.xlsx';
+    (new Xlsx($spreadsheet))->save($ruta);
+
+    return new UploadedFile($ruta, 'cargue.xlsx', null, null, true);
 }
 
 it('procesa un CSV y persiste en inventario_general con intervenido=0 y usuario del token', function () {
@@ -159,6 +179,34 @@ it('rechaza con 422 cuando falta la ubicación de origen', function () {
     ], ['Accept' => 'application/json'])
         ->assertStatus(422)
         ->assertJsonValidationErrors('ubicacion_origen');
+});
+
+it('salta las 3 filas de títulos institucionales del XLSX de Cubit', function () {
+    $filas = [
+        ['Teleperformance - Reporte de Activos'],
+        ['Generado: 2026-11-10'],
+        [''],
+        ['Identificador 1', 'Identificador 2', 'Marca', 'Ref. Principal', 'Descripcion'],
+        ['AF-XLSX-1', 'SN-XLSX-1', 'Dell', 'OptiPlex 7050', 'CPU'],
+        ['AF-XLSX-2', 'SN-XLSX-2', 'HP', 'ProDesk 600', 'CPU'],
+    ];
+
+    $respuesta = $this->post('/api/cargue-masivo', [
+        'num_traslado' => 'TR-XLSX',
+        'ubicacion_origen' => 'Bogotá',
+        'archivo' => xlsxCargue($filas),
+    ], ['Accept' => 'application/json']);
+
+    $respuesta->assertCreated();
+    expect($respuesta->json('data.insertados'))->toBe(2);
+    expect($respuesta->json('data.omitidos'))->toBe(0);
+
+    $this->assertDatabaseHas('inventario_general', [
+        'placa_id' => 'AF-XLSX-1',
+        'serial' => 'SN-XLSX-1',
+        'marca' => 'Dell',
+        'num_traslado' => 'TR-XLSX',
+    ]);
 });
 
 it('soporta CSV con separador de punto y coma (exporte español de Cubit)', function () {

@@ -81,14 +81,14 @@ final class DashboardService
     }
 
     /**
-     * Genera la bitácora CSV en streaming (BOM UTF-8 para Excel).
+     * Resuelve la bitácora completa (cabeceras + filas) respetando el RBAC de
+     * "solo propio". La columna "Observaciones" se asocia al activo según la
+     * estación que lo intervino.
      *
-     * @return \Generator<int, string>
+     * @return array{cabeceras: list<string>, filas: list<list<string>>}
      */
-    public function exportarCsv(User $user, DashboardRequest $request): \Generator
+    public function bitacora(User $user, DashboardRequest $request): array
     {
-        yield "\xEF\xBB\xBF".$this->filaCsv($this->cabeceras())."\r\n";
-
         $periodo = $request->periodo();
         [$inicio, $fin] = $this->rango($periodo, $request->fechaInicio(), $request->fechaFin());
 
@@ -96,26 +96,29 @@ final class DashboardService
 
         $placas = (clone $query)->pluck('placa_id')->unique();
 
-        $tipoGestionPorPlaca = Equipo::whereIn('placa_id', $placas)
+        $equiposPorPlaca = Equipo::whereIn('placa_id', $placas)
             ->orderBy('id')
             ->get()
-            ->keyBy('placa_id')
-            ->map(fn (Equipo $equipo) => $equipo->tipo_gestion?->label());
+            ->keyBy('placa_id');
 
-        $clasificacionPorPlaca = GarantiaPortatil::whereIn('placa_id', $placas)
+        $portatilesPorPlaca = GarantiaPortatil::whereIn('placa_id', $placas)
             ->orderBy('id')
             ->get()
-            ->keyBy('placa_id')
-            ->map(fn (GarantiaPortatil $registro) => $registro->clasificacion?->label());
+            ->keyBy('placa_id');
 
         $nombres = User::whereIn('id', (clone $query)->pluck('analista_intervencion')->filter())
             ->pluck('name', 'id');
 
+        $filas = [];
+
         foreach ($query->cursor() as $fila) {
-            yield $this->filaCsv(
-                $this->columnas($fila, $tipoGestionPorPlaca, $clasificacionPorPlaca, $nombres),
-            )."\r\n";
+            $filas[] = $this->columnas($fila, $equiposPorPlaca, $portatilesPorPlaca, $nombres);
         }
+
+        return [
+            'cabeceras' => $this->cabeceras(),
+            'filas' => $filas,
+        ];
     }
 
     private function baseQuery(User $user, DashboardRequest $request): Builder
@@ -388,28 +391,41 @@ final class DashboardService
             'Estado Actual',
             'Analista',
             'Fecha Intervencion',
+            'Observaciones',
         ];
     }
 
     /**
-     * @param  Collection<int, string|null>  $tipoGestionPorPlaca
-     * @param  Collection<int, string|null>  $clasificacionPorPlaca
+     * @param  Collection<int, Equipo>  $equiposPorPlaca
+     * @param  Collection<int, GarantiaPortatil>  $portatilesPorPlaca
      * @param  Collection<int, string>  $nombres
      * @return list<string>
      */
     private function columnas(
         InventarioGeneral $fila,
-        Collection $tipoGestionPorPlaca,
-        Collection $clasificacionPorPlaca,
+        Collection $equiposPorPlaca,
+        Collection $portatilesPorPlaca,
         Collection $nombres,
     ): array {
         $modulo = $fila->modulo_intervencion;
+        $placa = $fila->placa_id;
+
+        $equipo = $equiposPorPlaca->get($placa);
+        $portatil = $portatilesPorPlaca->get($placa);
 
         $tipoGestion = match (true) {
-            $modulo === ModuloIntervencionEnum::PORTATILES->value => $clasificacionPorPlaca->get($fila->placa_id) ?? '',
+            $modulo === ModuloIntervencionEnum::PORTATILES->value => $portatil?->clasificacion?->label() ?? '',
             $modulo === ModuloIntervencionEnum::EQUIPOS->value,
-            $modulo === ModuloIntervencionEnum::SOPLADO->value => $tipoGestionPorPlaca->get($fila->placa_id) ?? '',
+            $modulo === ModuloIntervencionEnum::SOPLADO->value => $equipo?->tipo_gestion?->label() ?? '',
             default => '',
+        };
+
+        // El texto libre registrado en la estación que intervino el activo:
+        // los portátiles viven en `garantia_portatil` y los CPUs (y el soplado
+        // derivado de un CPU) en `equipos`.
+        $observaciones = match (true) {
+            $modulo === ModuloIntervencionEnum::PORTATILES->value => $portatil?->observaciones ?? '',
+            default => $equipo?->observaciones ?? '',
         };
 
         return [
@@ -424,6 +440,7 @@ final class DashboardService
             $fila->estado_actual?->label() ?? '',
             $nombres->get($fila->analista_intervencion) ?? '',
             $fila->fecha_intervencion?->toDateTimeString() ?? '',
+            $observaciones,
         ];
     }
 
@@ -447,22 +464,5 @@ final class DashboardService
         }
 
         return ModuloIntervencionEnum::tryFrom($modulo)?->label() ?? $modulo;
-    }
-
-    /**
-     * @param  list<string>  $valores
-     */
-    private function filaCsv(array $valores): string
-    {
-        return implode(',', array_map(fn (string $valor) => $this->escapeCsv($valor), $valores));
-    }
-
-    private function escapeCsv(string $valor): string
-    {
-        if (str_contains($valor, ',') || str_contains($valor, '"') || str_contains($valor, "\n") || str_contains($valor, "\r")) {
-            return '"'.str_replace('"', '""', $valor).'"';
-        }
-
-        return $valor;
     }
 }

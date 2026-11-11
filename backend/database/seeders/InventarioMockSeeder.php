@@ -92,6 +92,7 @@ class InventarioMockSeeder extends Seeder
         $equipo = $this->registrarEquipo($inventario, [
             'tipo_gestion' => TipoGestionEnum::NOVEDAD,
             'requiere_soplado_o_pasta' => true,
+            'observaciones' => 'Equipo con acumulación de polvo, requiere soplado.',
             'ubicacion_destino' => UbicacionDestinoEnum::SALA_DE_GARANTIA,
         ], EstadoEquipoEnum::POR_SOPLAR);
 

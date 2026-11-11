@@ -73,6 +73,7 @@ final class CargueMasivoService
     {
         $filas = $this->leerFilas($archivo);
         $cabecera = array_shift($filas) ?? [];
+        $filaCabecera = $this->filaCabecera($archivo);
 
         [$mapeo, $erroresCabecera] = $this->resolverMapeo($cabecera);
 
@@ -87,7 +88,7 @@ final class CargueMasivoService
         $placasVistas = [];
 
         foreach ($filas as $indice => $fila) {
-            $numeroFila = $indice + 2; // +1 por la cabecera y +1 por ser base-1.
+            $numeroFila = $indice + $filaCabecera + 1; // +filaCabecera por la cabecera y +1 por ser base-1.
 
             $datos = $this->mapearFila($fila, $mapeo);
 
@@ -152,6 +153,18 @@ final class CargueMasivoService
     }
 
     /**
+     * Fila (base-1) en la que empieza la cabecera real de columnas del archivo.
+     * El CSV estándar arranca en la fila 1; el XLSX nativo de Cubit trae 3 filas
+     * de títulos institucionales, así que su cabecera está en la fila 4.
+     */
+    private function filaCabecera(UploadedFile $archivo): int
+    {
+        return strtolower($archivo->getClientOriginalExtension()) === 'xlsx'
+            ? CubitFilasImport::FILA_CABECERA
+            : 1;
+    }
+
+    /**
      * @return list<list<string>>
      */
     private function leerCsv(UploadedFile $archivo): array
@@ -185,7 +198,7 @@ final class CargueMasivoService
      */
     private function leerXlsx(UploadedFile $archivo): array
     {
-        $hojas = Excel::toArray(new CubitFilasImport, $archivo->getRealPath(), null, Excel::XLSX);
+        $hojas = Excel::toArray(new CubitFilasImport, $archivo->getRealPath(), null, \Maatwebsite\Excel\Excel::XLSX);
 
         $filas = $hojas[0] ?? [];
 

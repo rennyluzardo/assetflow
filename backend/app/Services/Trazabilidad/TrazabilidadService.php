@@ -69,6 +69,7 @@ final class TrazabilidadService
                     'estado' => $evento['estado'],
                     'foto' => $evento['foto'],
                     'detalle' => $evento['detalle'],
+                    'observaciones' => $evento['observaciones'],
                 ],
                 $eventos,
             ),
@@ -89,6 +90,7 @@ final class TrazabilidadService
             'estado' => null,
             'foto' => null,
             'detalle' => 'Ingreso al inventario · Traslado '.$inventario->num_traslado,
+            'observaciones' => null,
         ];
     }
 
@@ -111,6 +113,7 @@ final class TrazabilidadService
                 'estado' => $equipo->estado?->value,
                 'foto' => $equipo->foto_equipo,
                 'detalle' => $equipo->tipo_gestion->label(),
+                'observaciones' => $equipo->observaciones,
             ];
         }
     }
@@ -136,6 +139,7 @@ final class TrazabilidadService
                 'estado' => null,
                 'foto' => $soplado->foto_ruta,
                 'detalle' => 'Limpieza y despacho final',
+                'observaciones' => $this->notaTecnicaSoplado($soplado),
             ];
         }
     }
@@ -169,7 +173,32 @@ final class TrazabilidadService
                 'estado' => $registro->estado?->value,
                 'foto' => $registro->foto_evidencia,
                 'detalle' => $detalle,
+                'observaciones' => $registro->observaciones,
             ];
         }
+    }
+
+    /**
+     * `soplado_registros` no tiene una columna libre de comentarios: la nota
+     * técnica del evento se deriva de los hallazgos de la inspección (estado de
+     * arranque/video/BIOS, tipo de suciedad y aplicación de pasta térmica).
+     */
+    private function notaTecnicaSoplado(SopladoRegistro $soplado): string
+    {
+        $suciedad = match ($soplado->tipo_suciedad) {
+            'polvo' => 'Polvo',
+            'cucarachas' => 'Cucarachas',
+            'polvo_cucarachas' => 'Polvo y cucarachas',
+            'ninguna' => 'Ninguna',
+            default => $soplado->tipo_suciedad,
+        };
+
+        return implode(' · ', [
+            'Energiza: '.($soplado->energiza ? 'Sí' : 'No'),
+            'Da video: '.($soplado->da_video ? 'Sí' : 'No'),
+            'Acceso BIOS: '.($soplado->acceso_bios ? 'Sí' : 'No'),
+            'Suciedad: '.$suciedad,
+            'Pasta térmica: '.($soplado->aplica_pasta_termica ? 'Aplicada' : 'No aplicada'),
+        ]);
     }
 }

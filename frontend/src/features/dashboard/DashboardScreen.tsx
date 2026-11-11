@@ -1,13 +1,10 @@
 import { useState } from 'react'
 import { useAuth } from '@/features/auth/AuthContext'
-import {
-  ESTADO_LABELS,
-  ESTADO_SEMANTICA,
-  SEMANTICA_CLASSES,
-} from '@/constants/equipos'
-import type { EstadoEquipo, EstadoSemantica } from '@/constants/equipos'
+import { ESTADO_LABELS } from '@/constants/equipos'
+import type { EstadoEquipo } from '@/constants/equipos'
 import { cn } from '@/lib/cn'
-import { descargarBitacoraCsv, useDashboard } from './api'
+import { descargarBitacoraXlsx, useDashboard } from './api'
+import { DistribucionEstadosChart } from './components/DistribucionEstadosChart'
 import type {
   DashboardParams,
   ModuloDashboard,
@@ -44,15 +41,6 @@ const PERIODO_LABEL: Record<PeriodoDashboard, string> = {
   anio: 'este año',
 }
 
-function semanticaEstado(estado: string): { label: string; className: string } {
-  const clave = estado as EstadoEquipo
-  const semantica: EstadoSemantica = ESTADO_SEMANTICA[clave] ?? 'ambar'
-  return {
-    label: ESTADO_LABELS[clave] ?? estado,
-    className: SEMANTICA_CLASSES[semantica],
-  }
-}
-
 function KpiCard({
   titulo,
   valor,
@@ -77,43 +65,6 @@ function KpiCard({
         {valor}
       </p>
       {sub && <p className="mt-1 text-xs text-slate-500">{sub}</p>}
-    </div>
-  )
-}
-
-/** Panel de distribución por estado de la máquina de estados (tríada semántica). */
-function DistribucionEstados({ conteo }: { conteo: ReadonlyArray<{ estado: string; total: number }> }) {
-  const total = conteo.reduce((suma, e) => suma + e.total, 0)
-
-  if (total === 0) {
-    return (
-      <p className="text-sm text-slate-400">Sin estados registrados en el periodo seleccionado.</p>
-    )
-  }
-
-  return (
-    <div className="space-y-3">
-      <div className="flex h-3 w-full overflow-hidden rounded-full bg-muted">
-        {conteo.map((e) => {
-          const { className } = semanticaEstado(e.estado)
-          const ancho = `${(e.total / total) * 100}%`
-          return <div key={e.estado} className={cn('h-full', className)} style={{ width: ancho }} />
-        })}
-      </div>
-      <ul className="space-y-1.5">
-        {conteo.map((e) => {
-          const { label, className } = semanticaEstado(e.estado)
-          return (
-            <li key={e.estado} className="flex items-center justify-between text-sm">
-              <span className="flex items-center gap-2 text-slate-600">
-                <span className={cn('inline-block h-2.5 w-2.5 rounded-full border', className)} />
-                {label}
-              </span>
-              <span className="font-mono text-slate-900">{e.total}</span>
-            </li>
-          )
-        })}
-      </ul>
     </div>
   )
 }
@@ -218,7 +169,7 @@ export function DashboardScreen() {
     setExportando(true)
     setErrorExportar(null)
     try {
-      await descargarBitacoraCsv(params)
+      await descargarBitacoraXlsx(params)
     } catch (err) {
       setErrorExportar(err instanceof Error ? err.message : 'No se pudo exportar la bitácora.')
     } finally {
@@ -228,17 +179,17 @@ export function DashboardScreen() {
 
   return (
     <div className="flex flex-col gap-6 p-6">
-      <header className="flex flex-wrap items-end justify-between gap-4">
-        <div>
-          <h1 className="text-2xl font-semibold tracking-tight text-slate-900">
+      <header className="sticky top-0 z-50 -mx-6 -mt-6 flex h-16 items-center justify-between gap-4 border-b border-line bg-slate-50/95 px-6 backdrop-blur-sm">
+        <div className="min-w-0">
+          <h1 className="truncate text-xl font-semibold tracking-tight text-slate-900 sm:text-2xl">
             Dashboard de Control Operativo
           </h1>
-          <p className="mt-1 text-sm text-slate-500">
+          <p className="hidden truncate text-xs text-slate-500 sm:block">
             Productividad del taller {esAdmin ? '(vista global)' : '(vista personal)'}.
           </p>
         </div>
         {data && (
-          <p className="text-sm text-slate-500">
+          <p className="hidden shrink-0 text-sm text-slate-500 sm:block">
             Total inventario: <span className="font-mono">{data.kpis.total_inventario}</span>
           </p>
         )}
@@ -250,7 +201,8 @@ export function DashboardScreen() {
         </div>
       )}
 
-      <section className="mx-auto flex w-full max-w-7xl flex-wrap items-center gap-3 rounded-lg border border-line bg-surface p-3">
+      <div className="sticky top-16 z-40 -mx-6 bg-slate-50/95 px-6 py-3 backdrop-blur-sm">
+        <section className="mx-auto flex w-full max-w-7xl flex-wrap items-center gap-3 rounded-lg border border-line bg-surface p-3">
         <div className="flex rounded-md border border-line p-0.5">
           {PERIODOS.map((p) => (
             <button
@@ -328,9 +280,10 @@ export function DashboardScreen() {
           onClick={() => void exportar()}
           className="ml-auto rounded-md bg-slate-900 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-slate-800 disabled:cursor-not-allowed disabled:opacity-40"
         >
-          {exportando ? 'Exportando…' : 'Exportar Bitácora (.CSV)'}
+          {exportando ? 'Exportando…' : 'Exportar Bitácora (.XLSX)'}
         </button>
-      </section>
+        </section>
+      </div>
 
       {errorExportar && (
         <p className="text-sm text-estado-terracota-ink">{errorExportar}</p>
@@ -400,12 +353,12 @@ export function DashboardScreen() {
           </section>
 
           <section className="mx-auto grid w-full max-w-7xl grid-cols-1 gap-6 lg:grid-cols-2">
-            <div className="rounded-lg border border-line bg-surface p-5">
-              <h2 className="mb-4 text-sm font-semibold text-slate-700">
-                Distribución por estado
-              </h2>
-              <DistribucionEstados conteo={data.conteo_por_estado} />
-            </div>
+            <DistribucionEstadosChart
+              data={data.conteo_por_estado.map((item) => ({
+                name: ESTADO_LABELS[item.estado as EstadoEquipo] ?? item.estado,
+                value: item.total,
+              }))}
+            />
 
             <div className="rounded-lg border border-line bg-surface p-5">
               <h2 className="mb-4 text-sm font-semibold text-slate-700">

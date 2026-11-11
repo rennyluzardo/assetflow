@@ -69,6 +69,19 @@ function TimelineItem({ evento, esUltimo }: { evento: EventoTrazabilidad; esUlti
 
         {evento.detalle && <p className="mt-2 text-sm text-slate-600">{evento.detalle}</p>}
 
+        {evento.tipo !== 'inventario' && (
+          <div className="mt-3">
+            <p className="text-xs font-medium text-slate-500">Observaciones técnicas:</p>
+            {evento.observaciones ? (
+              <p className="mt-1 whitespace-pre-wrap rounded border border-slate-200 bg-slate-50 p-2.5 text-sm text-slate-700">
+                {evento.observaciones}
+              </p>
+            ) : (
+              <p className="mt-1 text-sm italic text-slate-400">Sin observaciones registradas</p>
+            )}
+          </div>
+        )}
+
         {evento.foto && (
           <div className="mt-3 flex items-center gap-3">
             <img

@@ -73,9 +73,9 @@ Route::middleware('auth:sanctum')->group(function () {
         ->middleware('permission:dashboard.ver_solo_propio')
         ->name('dashboard.index');
 
-    Route::get('/dashboard/exportar-csv', [DashboardController::class, 'exportarCsv'])
+    Route::get('/dashboard/exportar', [DashboardController::class, 'exportar'])
         ->middleware('permission:dashboard.ver_solo_propio')
-        ->name('dashboard.exportar-csv');
+        ->name('dashboard.exportar');
 
     Route::get('/traslados', [TrasladoController::class, 'index'])
         ->middleware('permission:traslados.ver')

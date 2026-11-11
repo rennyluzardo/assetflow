@@ -415,6 +415,9 @@ class DemoOperativoSeeder extends Seeder
                 $equipo = $this->crearEquipo($asset, $tipo, [
                     'requiere_soplado_o_pasta' => true,
                     'hay_pieza' => $intervencion ? true : null,
+                    'observaciones' => $intervencion
+                        ? 'Pieza reemplazada, requiere soplado final antes del despacho.'
+                        : 'Equipo con acumulación de polvo, requiere soplado.',
                 ], EstadoEquipoEnum::POR_SOPLAR, UbicacionDestinoEnum::SALA_DE_GARANTIA, $this->fecha($bucket));
 
                 $this->crearSopladoCierre($equipo, UbicacionDestinoEnum::ALMACEN, $estadoFinal, $this->fecha($bucket));
@@ -434,6 +437,7 @@ class DemoOperativoSeeder extends Seeder
                 $this->crearEquipo($asset, TipoGestionEnum::DIAGNOSTICO, [
                     'esta_funcional' => true,
                     'requiere_soplado_o_pasta' => false,
+                    'observaciones' => 'Equipo funcional, sin novedades.',
                 ], EstadoEquipoEnum::COMPLETADO, UbicacionDestinoEnum::ALMACEN, $this->fecha($bucket));
             }
         }
@@ -445,6 +449,7 @@ class DemoOperativoSeeder extends Seeder
                     'tiene_garantia' => false,
                     'motivo_baja' => 'Tarjeta madre dañada y sin garantía vigente.',
                     'serial_disco' => 'SD-BAJA-'.substr($asset['serial'], -4),
+                    'observaciones' => 'Tarjeta madre dañada y sin garantía vigente.',
                 ], EstadoEquipoEnum::BAJA_NO_SIRVE, UbicacionDestinoEnum::SALA_DE_BAJA, $this->fecha($bucket));
             }
         }
@@ -456,6 +461,7 @@ class DemoOperativoSeeder extends Seeder
                     'es_obsoleta' => true,
                     'motivo_baja' => 'OBSOLETA',
                     'serial_disco' => 'SD-OBS-'.substr($asset['serial'], -4),
+                    'observaciones' => 'Retiro por fin de vida útil (equipo obsoleto).',
                 ], EstadoEquipoEnum::BAJA_NO_SIRVE, UbicacionDestinoEnum::SALA_DE_BAJA, $this->fecha($bucket));
             }
         }

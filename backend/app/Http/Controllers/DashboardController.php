@@ -2,10 +2,12 @@
 
 namespace App\Http\Controllers;
 
+use App\Exports\BitacoraExport;
 use App\Http\Requests\Dashboard\DashboardRequest;
 use App\Services\Dashboard\DashboardService;
 use Illuminate\Http\JsonResponse;
-use Symfony\Component\HttpFoundation\StreamedResponse;
+use Maatwebsite\Excel\Facades\Excel;
+use Symfony\Component\HttpFoundation\BinaryFileResponse;
 
 class DashboardController extends Controller
 {
@@ -16,14 +18,14 @@ class DashboardController extends Controller
         return response()->json(['data' => $this->dashboard->metricas($request->user(), $request)]);
     }
 
-    public function exportarCsv(DashboardRequest $request): StreamedResponse
+    public function exportar(DashboardRequest $request): BinaryFileResponse
     {
-        $nombre = 'bitacora_'.now()->format('Ymd_His').'.csv';
+        $bitacora = $this->dashboard->bitacora($request->user(), $request);
+        $nombre = 'bitacora_'.now()->format('Ymd_His').'.xlsx';
 
-        return response()->streamDownload(function () use ($request): void {
-            foreach ($this->dashboard->exportarCsv($request->user(), $request) as $linea) {
-                echo $linea;
-            }
-        }, $nombre, ['Content-Type' => 'text/csv; charset=UTF-8']);
+        return Excel::download(
+            new BitacoraExport($bitacora['cabeceras'], $bitacora['filas']),
+            $nombre,
+        );
     }
 }
