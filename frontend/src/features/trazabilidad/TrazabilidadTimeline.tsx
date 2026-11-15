@@ -1,6 +1,7 @@
 import type { EventoTrazabilidad } from './types'
-import { UBICACION_LABELS } from '@/constants/equipos'
+import { ubicacionLabel } from '@/constants/equipos'
 import { StatusBadge } from '@/components/StatusBadge'
+import { EvidenciaFotos } from './EvidenciaFotos'
 
 /** Fecha/hora legible en `font-mono` para la línea de tiempo. */
 function formatearFecha(iso: string): string {
@@ -62,7 +63,7 @@ function TimelineItem({ evento, esUltimo }: { evento: EventoTrazabilidad; esUlti
           <div>
             <dt className="text-xs text-slate-500">Ubicación asignada</dt>
             <dd className="text-slate-700">
-              {evento.ubicacion ? UBICACION_LABELS[evento.ubicacion] : '—'}
+              {ubicacionLabel(evento.ubicacion)}
             </dd>
           </div>
         </dl>
@@ -82,19 +83,7 @@ function TimelineItem({ evento, esUltimo }: { evento: EventoTrazabilidad; esUlti
           </div>
         )}
 
-        {evento.foto && (
-          <div className="mt-3 flex items-center gap-3">
-            <img
-              src={`/storage/${evento.foto}`}
-              alt="Evidencia fotográfica"
-              className="h-16 w-16 rounded-md border border-line object-cover"
-              onError={(e) => {
-                e.currentTarget.style.display = 'none'
-              }}
-            />
-            <span className="break-all font-mono text-xs text-slate-400">{evento.foto}</span>
-          </div>
-        )}
+        <EvidenciaFotos evento={evento} />
       </div>
     </li>
   )

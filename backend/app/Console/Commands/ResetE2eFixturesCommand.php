@@ -16,7 +16,7 @@ use Illuminate\Support\Facades\Hash;
 
 class ResetE2eFixturesCommand extends Command
 {
-    protected $signature = 'e2e:reset-fixtures';
+    protected $signature = 'e2e:reset-fixtures {--codigo= : Código exacto de un traslado creado por la suite para eliminar.}';
 
     protected $description = 'Devuelve las placas reservadas de Playwright (CPUs AF-100001..AF-100015 y portátiles AF-100101..AF-100110) a su estado virgen.';
 
@@ -32,10 +32,14 @@ class ResetE2eFixturesCommand extends Command
 
         DB::transaction(function () use ($placas): void {
             // Cabeceras de traslado que la suite E2E crea vía la modal de
-            // /traslados (código TR-E2E-*): se eliminan físicamente para no
-            // dejar basura en la base de datos de desarrollo (misma convención
-            // `forceDelete` que el resto del reseteo de fixtures).
+            // /traslados: el código autogenerado llega por `--codigo` (misma
+            // convención `forceDelete` que el resto del reseteo de fixtures).
+            // Se conserva el LIKE por si quedan cabeceras del diseño anterior.
             Traslado::where('codigo', 'LIKE', 'TR-E2E-%')->forceDelete();
+
+            if ($codigo = $this->option('codigo')) {
+                Traslado::where('codigo', $codigo)->forceDelete();
+            }
 
             // Hijos primero: soplado_registros cuelga de equipos; ambos y
             // garantia_portatil cuelgan de inventario_general.

@@ -17,7 +17,6 @@ class RolePermissionSeeder extends Seeder
 
         $permisos = [
             'inventario.ver',
-            'cargue_masivo.ejecutar',
             'cpus.ver_bitacora',
             'cpus.registrar',
             'soplado.ver_bitacora',
@@ -28,6 +27,7 @@ class RolePermissionSeeder extends Seeder
             'dashboard.ver_solo_propio',
             'traslados.ver',
             'traslados.registrar',
+            'zonas_ubicaciones.gestionar',
         ];
 
         foreach ($permisos as $permiso) {
@@ -41,6 +41,7 @@ class RolePermissionSeeder extends Seeder
         $analista->syncPermissions(['inventario.ver', 'trazabilidad.ver', 'dashboard.ver_solo_propio']);
 
         $this->usuario('Administrador', 'admin@assetflow.local', 'admin');
+        $this->usuario('Administrador 2', 'admin2@assetflow.local', 'admin');
         $this->usuario('Técnico CPU', 'cpu@assetflow.local', 'analista', [
             'cpus.ver_bitacora',
             'cpus.registrar',

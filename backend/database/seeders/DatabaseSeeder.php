@@ -10,6 +10,7 @@ class DatabaseSeeder extends Seeder
     {
         $this->call([
             RolePermissionSeeder::class,
+            ZonaUbicacionSeeder::class,
             InventarioMockSeeder::class,
         ]);
     }

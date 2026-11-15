@@ -1,11 +1,11 @@
 <?php
 
-namespace App\Http\Requests\CargueMasivo;
+namespace App\Http\Requests\Traslados;
 
 use Closure;
 use Illuminate\Foundation\Http\FormRequest;
 
-class ProcesarCargueRequest extends FormRequest
+class ImportarExcelTrasladoRequest extends FormRequest
 {
     public function authorize(): bool
     {
@@ -15,8 +15,6 @@ class ProcesarCargueRequest extends FormRequest
     public function rules(): array
     {
         return [
-            'num_traslado' => ['required', 'string', 'max:255'],
-            'ubicacion_origen' => ['required', 'string', 'max:255'],
             'archivo' => [
                 'required',
                 'file',

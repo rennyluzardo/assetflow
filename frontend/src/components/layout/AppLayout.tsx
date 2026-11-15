@@ -26,7 +26,6 @@ const NAV_GROUPS: NavGroup[] = [
       { to: '/equipos', label: 'CPUs', permiso: 'cpus.ver_bitacora' },
       { to: '/portatiles', label: 'Portátiles', permiso: 'portatiles.ver_bitacora' },
       { to: '/soplado', label: 'Soplado', permiso: 'soplado.ver_bitacora' },
-      { to: '/cargue-masivo', label: 'Cargue Masivo', permiso: 'cargue_masivo.ejecutar' },
       { to: '/inventario', label: 'Inventario', permiso: 'inventario.ver' },
       { to: '/trazabilidad', label: 'Trazabilidad', permiso: 'trazabilidad.ver' },
     ],
@@ -39,6 +38,12 @@ const NAV_GROUPS: NavGroup[] = [
     titulo: 'Reacondicionamiento',
     items: [],
     enConstruccion: true,
+  },
+  {
+    titulo: 'Administración',
+    items: [
+      { to: '/zonas-ubicaciones', label: 'Zonas y Ubicaciones', permiso: 'zonas_ubicaciones.gestionar' },
+    ],
   },
 ]
 

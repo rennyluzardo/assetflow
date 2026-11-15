@@ -22,7 +22,16 @@ test.describe('Trazabilidad: hoja de vida del activo', () => {
     await expect(timeline.getByText('Técnico CPU', { exact: true }).first()).toBeVisible()
     await expect(timeline.getByText('Almacén', { exact: true }).first()).toBeVisible()
 
-    // Evidencia fotográfica del soplado (nombre de archivo en la línea de tiempo).
-    await expect(page.getByText('fotos/soplado/AF-100016-interior.jpg').first()).toBeVisible()
+    // Evidencia fotográfica del soplado: miniatura ampliable en la línea de tiempo.
+    const miniatura = timeline.getByRole('button', { name: /Ampliar evidencia fotográfica/ }).first()
+    await expect(miniatura).toBeVisible()
+
+    // El visor maximizado expone cierre y descarga; Escape lo cierra.
+    await miniatura.click()
+    const visor = page.getByRole('dialog', { name: 'Visor de evidencia fotográfica' })
+    await expect(visor).toBeVisible()
+    await expect(visor.getByRole('button', { name: 'Descargar' })).toBeVisible()
+    await page.keyboard.press('Escape')
+    await expect(visor).toBeHidden()
   })
 })

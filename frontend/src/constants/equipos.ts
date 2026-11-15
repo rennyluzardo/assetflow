@@ -30,6 +30,16 @@ export const UBICACION_LABELS: Record<UbicacionDestino, string> = {
   SALA_DE_BAJA: 'Sala de Baja',
 }
 
+/**
+ * Etiqueta de una ubicación. `ubicacion_actual` es ahora texto libre (puede
+ * contener ubicaciones creadas desde el maestro de zonas), por lo que se cae al
+ * valor crudo cuando no existe etiqueta mapeada.
+ */
+export function ubicacionLabel(ubicacion: string | null | undefined): string {
+  if (!ubicacion) return '—'
+  return (UBICACION_LABELS as Record<string, string>)[ubicacion] ?? ubicacion
+}
+
 export const ESTADO_LABELS: Record<EstadoEquipo, string> = {
   POR_SOPLAR: 'Por soplar',
   PENDIENTE_GARANTIA: 'Pendiente garantía',

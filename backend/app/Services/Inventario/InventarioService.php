@@ -36,7 +36,7 @@ final class InventarioService
      */
     public function listar(ListarInventarioRequest $request): array
     {
-        $query = InventarioGeneral::query()->select(self::COLUMNAS);
+        $query = InventarioGeneral::query()->select(self::COLUMNAS)->recibidos();
 
         if ($busqueda = $request->validated('search')) {
             $termino = mb_strtolower(trim($busqueda), 'UTF-8');

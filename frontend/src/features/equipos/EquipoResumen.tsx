@@ -1,5 +1,5 @@
-import type { EstadoEquipo, UbicacionDestino } from '@/constants/equipos'
-import { UBICACION_LABELS } from '@/constants/equipos'
+import type { EstadoEquipo } from '@/constants/equipos'
+import { ubicacionLabel } from '@/constants/equipos'
 import { StatusBadge } from '@/components/StatusBadge'
 import { cn } from '@/lib/cn'
 
@@ -10,7 +10,7 @@ export interface ResumenActivo {
   referencia: string | null
   descripcion: string
   num_traslado: string
-  ubicacion_actual: UbicacionDestino | null
+  ubicacion_actual: string | null
   estado_actual: EstadoEquipo | null
 }
 
@@ -28,7 +28,7 @@ export function EquipoResumen({ equipo }: { equipo: ResumenActivo }) {
         {equipo.num_traslado}
       </Campo>
       <Campo etiqueta="Ubicación actual">
-        {equipo.ubicacion_actual ? UBICACION_LABELS[equipo.ubicacion_actual] : '—'}
+        {ubicacionLabel(equipo.ubicacion_actual)}
       </Campo>
       <Campo etiqueta="Referencia">{equipo.referencia ?? '—'}</Campo>
       <Campo etiqueta="Descripción">{equipo.descripcion}</Campo>

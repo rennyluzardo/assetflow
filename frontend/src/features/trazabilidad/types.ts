@@ -1,4 +1,4 @@
-import type { EstadoEquipo, UbicacionDestino } from '@/constants/equipos'
+import type { EstadoEquipo } from '@/constants/equipos'
 
 export type TipoEvento = 'inventario' | 'equipos' | 'soplado' | 'portatil'
 
@@ -8,9 +8,16 @@ export interface EventoTrazabilidad {
   estacion: string
   fecha: string
   analista: string | null
-  ubicacion: UbicacionDestino | null
+  ubicacion: string | null
   estado: EstadoEquipo | null
+  /** Evidencias ya resueltas a URL pública por el backend (`/storage/...`). */
+  fotos?: string[]
+  /** Ruta cruda heredada; se conserva por compatibilidad con clientes previos. */
   foto: string | null
+  /** Campos individuales heredados que se normalizan cuando `fotos` no viene. */
+  foto_url?: string | null
+  foto_equipo?: string | null
+  foto_ruta?: string | null
   detalle: string | null
   observaciones: string | null
 }
@@ -24,7 +31,7 @@ export interface ActivoTrazabilidad {
   descripcion: string
   zona_actual: string | null
   num_traslado: string
-  ubicacion_actual: UbicacionDestino | null
+  ubicacion_actual: string | null
   estado_actual: EstadoEquipo | null
   intervenido: boolean
   fecha_intervencion: string | null

@@ -1,4 +1,4 @@
-import type { EstadoEquipo, UbicacionDestino } from '@/constants/equipos'
+import type { EstadoEquipo } from '@/constants/equipos'
 import type { ColumnaOrdenable, DireccionOrden } from './orden'
 
 /** Registro de la tabla maestra devuelto por `GET /api/inventario`. */
@@ -10,7 +10,7 @@ export interface InventarioItem {
   referencia: string | null
   descripcion: string
   num_traslado: string
-  ubicacion_actual: UbicacionDestino | null
+  ubicacion_actual: string | null
   estado_actual: EstadoEquipo | null
   intervenido: boolean
 }

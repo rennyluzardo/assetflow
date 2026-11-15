@@ -7,7 +7,7 @@ export interface InventarioBusqueda {
   referencia: string | null
   descripcion: string
   num_traslado: string
-  ubicacion_actual: UbicacionDestino | null
+  ubicacion_actual: string | null
   estado_actual: EstadoEquipo | null
   equipo_activo: EquipoActivo | null
 }

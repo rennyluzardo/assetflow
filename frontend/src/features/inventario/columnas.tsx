@@ -1,6 +1,6 @@
 import { Link } from '@tanstack/react-router'
 import { createColumnHelper } from '@tanstack/react-table'
-import { UBICACION_LABELS } from '@/constants/equipos'
+import { ubicacionLabel } from '@/constants/equipos'
 import { CeldaEstado } from './components/CeldaEstado'
 import { inventarioFeatures } from './table/features'
 import type { InventarioItem } from './types'
@@ -38,11 +38,7 @@ export const COLUMNAS_INVENTARIO = helper.columns([
     header: 'Ubicación',
     cell: (info) => {
       const ubicacion = info.getValue()
-      return (
-        <span className="text-xs text-slate-600">
-          {ubicacion ? (UBICACION_LABELS[ubicacion] ?? ubicacion) : '—'}
-        </span>
-      )
+      return <span className="text-xs text-slate-600">{ubicacionLabel(ubicacion)}</span>
     },
   }),
   helper.accessor('estado_actual', {

@@ -6,6 +6,7 @@ import { useAuth } from './AuthContext'
 
 const DEV_USERS = [
   { email: 'admin@assetflow.local', label: 'Administrador' },
+  { email: 'admin2@assetflow.local', label: 'Administrador 2' },
   { email: 'cpu@assetflow.local', label: 'Técnico CPU' },
   { email: 'soplado@assetflow.local', label: 'Técnico Soplado' },
   { email: 'portatiles@assetflow.local', label: 'Técnico Portátiles' },

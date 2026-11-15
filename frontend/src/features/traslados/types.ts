@@ -1,18 +1,34 @@
-export type ZonaSede = 'BOGOTA' | 'MEDELLIN'
-export type TrasladoEstado = 'EN_TRANSITO' | 'RECIBIDO'
+export type TrasladoEstado = 'ABIERTO' | 'EN_TRANSITO' | 'RECIBIDO'
+
+export type { Ubicacion, Zona } from '@/features/zonas-ubicaciones/types'
+
+export interface UsuarioRelacion {
+  id: number
+  name: string
+}
 
 export interface Traslado {
   id: number
   codigo: string
-  zona_origen: ZonaSede
-  ubicacion_origen_exacta: string | null
-  zona_destino: ZonaSede
-  ubicacion_destino_exacta: string | null
+  zona_origen: string | null
+  ubicacion_origen: string | null
+  zona_destino: string
+  ubicacion_destino: string
   estado: TrasladoEstado
-  analista_id: number | null
-  equipos_count: number
+  observaciones: string | null
+  observacion_cierre_parcial: string | null
+  creado_por_id: number | null
+  despachado_por_id: number | null
+  despachado_at: string | null
+  recibido_por_id: number | null
+  recibido_at: string | null
+  equipos_total: number
+  equipos_recibidos: number
   created_at: string
   updated_at: string
+  creador?: UsuarioRelacion | null
+  despachador?: UsuarioRelacion | null
+  receptor?: UsuarioRelacion | null
 }
 
 export interface TrasladoMeta {
@@ -32,49 +48,68 @@ export interface TrasladoListaResponse {
 export interface TrasladoListaParams {
   page?: number
   per_page?: number
+  codigo?: string
+  zona_origen?: string
+  ubicacion_origen?: string
+  zona_destino?: string
+  ubicacion_destino?: string
   estado?: TrasladoEstado
 }
 
-export interface RegistrarTrasladoPayload {
+/** Filtros editables desde la URL de `/traslados`. */
+export interface TrasladoSearchParams {
   codigo: string
-  zona_origen: ZonaSede
-  ubicacion_origen_exacta?: string
-  zona_destino: ZonaSede
-  ubicacion_destino_exacta?: string
+  estado: TrasladoEstado | ''
+  per_page: number
+  page: number
 }
 
-/** Activo devuelto al escanear una placa en el módulo de traslados. */
-export interface EquipoTrasladoBusqueda {
+export interface RegistrarTrasladoPayload {
+  zona_destino: string
+  ubicacion_destino: string
+  observaciones?: string
+}
+
+/** Fila pivote devuelta al agregar o verificar un equipo. */
+export interface PivoteEquipo {
+  id: number
+  traslado_id: number
+  inventario_id: number
   placa_id: string
-  serial: string
-  marca: string | null
-  referencia: string | null
-  descripcion: string
-  num_traslado: string
-  ubicacion_origen: string | null
+  recibido: boolean
 }
 
-export interface EquipoRecibido {
+export interface EquipoTraslado {
   id: number
   placa_id: string
-  serial: string
+  serial: string | null
   marca: string | null
   referencia: string | null
-  descripcion: string
-  num_traslado: string
-  ubicacion_actual: string | null
-  estado_actual: string | null
-  intervenido: boolean
+  descripcion: string | null
+  zona_origen: string | null
   ubicacion_origen: string | null
+  recibido: boolean
+  recibido_at: string | null
+  recibido_por: string | null
 }
 
-export interface RecibirTrasladoResponse {
+export interface TrasladoDetalle {
   traslado: Traslado
-  equipos: EquipoRecibido[]
+  equipos: EquipoTraslado[]
 }
 
-/** Listado de equipos asociados a un traslado (vista unificada de equipos). */
-export interface TrasladoEquiposResponse {
-  traslado: Traslado | null
-  equipos: EquipoRecibido[]
+export interface BusquedaEquipoTraslado {
+  placa_id: string
+  serial: string | null
+  marca: string | null
+  referencia: string | null
+  descripcion: string | null
+  zona_actual: string | null
+  ubicacion_actual: string | null
+  traslado_activo: { codigo: string; estado: TrasladoEstado } | null
+}
+
+export interface ImportacionResultado {
+  agregados: number
+  errores: { placa: string; error: string }[]
 }

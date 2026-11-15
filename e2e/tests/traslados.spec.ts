@@ -5,13 +5,17 @@ import { login, CREDENCIALES } from './fixtures'
 
 const BACKEND_DIR = fileURLToPath(new URL('../../backend', import.meta.url))
 
+/** Código autogenerado del traslado creado por la suite, para limpiarlo al final. */
+let codigoCreado: string | null = null
+
 /**
- * Al terminar, elimina las cabeceras `TR-E2E-*` creadas por esta suite para no
- * dejar basura en `/traslados` de la base de datos de desarrollo. Reutiliza el
- * mismo comando que ya limpia las placas reservadas (`e2e:reset-fixtures`).
+ * Al terminar, elimina la cabecera creada por esta suite para no dejar basura
+ * en `/traslados` de la base de datos de desarrollo. El código ahora es
+ * autogenerado, así que se pasa al comando `e2e:reset-fixtures` vía `--codigo`.
  */
 test.afterAll(() => {
-  execSync('php artisan e2e:reset-fixtures', { cwd: BACKEND_DIR, stdio: 'inherit' })
+  const codigo = codigoCreado ? ` --codigo=${codigoCreado}` : ''
+  execSync(`php artisan e2e:reset-fixtures${codigo}`, { cwd: BACKEND_DIR, stdio: 'inherit' })
 })
 
 test.describe('Traslados: maestro-detalle', () => {
@@ -22,35 +26,41 @@ test.describe('Traslados: maestro-detalle', () => {
     await expect(page).toHaveURL(/\/traslados$/)
 
     // Vista maestro: buscador a la izquierda y CTA principal a la derecha.
-    await expect(page.getByPlaceholder('Buscar por Código de traslado...')).toBeVisible()
+    await expect(page.getByLabel('Buscar por código de traslado')).toBeVisible()
     await expect(page.getByRole('button', { name: 'Registrar traslado' })).toBeVisible()
 
-    // Abrir la modal de registro (figura-fondo).
+    // Abrir la modal de apertura (figura-fondo).
     await page.getByRole('button', { name: 'Registrar traslado' }).click()
     const dialog = page.getByRole('dialog', { name: 'Registrar traslado' })
     await expect(dialog).toBeVisible()
 
-    // Llenar el formulario de creación.
-    const codigo = `TR-E2E-${Date.now()}`
-    await dialog.getByLabel('Código de traslado').fill(codigo)
-    await dialog.getByLabel('Zona de origen').selectOption('BOGOTA')
-    await dialog.getByLabel('Zona de destino').selectOption('MEDELLIN')
-    await dialog.getByLabel('Ubicación exacta de origen').fill('Bodega Norte')
-    await dialog.getByLabel('Ubicación exacta de destino').fill('Sala 2')
+    // Solo se elige el destino: el código es autogenerado y el origen nace pendiente.
+    await dialog.getByLabel('Zona de destino').selectOption('BOGOTA')
+    await expect(dialog.getByLabel('Ubicación de destino')).toBeEnabled()
+    await dialog.getByLabel('Ubicación de destino').selectOption('SALA_DE_GARANTIA')
 
-    // Guardar y verificar que la modal se cierra y el traslado aparece en la tabla.
-    await dialog.getByRole('button', { name: 'Guardar' }).click()
+    // Abrir y verificar que la modal se cierra y el traslado aparece en la tabla.
+    await dialog.getByRole('button', { name: 'Abrir traslado' }).click()
     await expect(page.getByRole('dialog', { name: 'Registrar traslado' })).toHaveCount(0)
-    await expect(page.getByRole('row', { name: new RegExp(codigo) })).toBeVisible()
+
+    // El listado ordena por id descendente: la fila más reciente es la recién creada.
+    const fila = page.locator('tbody tr').first()
+    await expect(fila).toContainText('Origen pendiente → BOGOTA')
+    await expect(fila).toContainText('Abierto')
+
+    const codigo = (await fila.locator('td').first().textContent())?.trim() ?? ''
+    expect(codigo).toMatch(/^\d+$/)
+    codigoCreado = codigo
 
     // Abrir el drawer lateral (preservación de contexto) y validar su contenido.
-    await page.getByRole('row', { name: new RegExp(codigo) }).click()
-    const drawer = page.getByRole('dialog', { name: new RegExp(codigo) })
+    await fila.click()
+    const drawer = page.getByRole('dialog', { name: 'Detalle de traslado' })
     await expect(drawer).toBeVisible()
-    await expect(drawer.getByRole('heading', { name: 'Lista de equipos del traslado' })).toBeVisible()
+    await expect(drawer.getByText(codigo)).toBeVisible()
+    await expect(drawer.getByText('Origen pendiente → BOGOTA')).toBeVisible()
     await expect(drawer.getByText('Sin equipos asociados a este traslado.')).toBeVisible()
 
-    // El administrador (sin sede) puede recibir cualquier traslado en tránsito.
-    await expect(drawer.getByRole('button', { name: 'Recibir Traslado' })).toBeVisible()
+    // Estado ABIERTO sin equipos: el despacho queda deshabilitado hasta agregar lotes.
+    await expect(drawer.getByRole('button', { name: 'Despachar traslado' })).toBeDisabled()
   })
 })

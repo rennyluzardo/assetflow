@@ -15,14 +15,15 @@ it('crea las cabeceras de traslado de los lotes demo con rutas realistas', funct
         'codigo' => '319126',
         'zona_origen' => 'BOGOTA',
         'zona_destino' => 'BOGOTA',
-        'ubicacion_destino_exacta' => '30052001965-CNCTF_P01_GARANTIAS',
-        'estado' => 'EN_TRANSITO',
+        'ubicacion_destino' => 'SALA_DE_GARANTIA',
+        'estado' => 'RECIBIDO',
     ]);
 
     $this->assertDatabaseHas('traslados', [
         'codigo' => '319127',
         'zona_origen' => 'MEDELLIN',
         'zona_destino' => 'BOGOTA',
+        'estado' => 'RECIBIDO',
     ]);
 
     $this->assertDatabaseHas('traslados', [

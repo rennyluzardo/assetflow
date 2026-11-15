@@ -7,7 +7,6 @@ import type {
 import type { AuthPayload, LoginResponse } from '@/features/auth/types'
 import type { RegistrarSopladoPayload, SopladoRegistroResult } from '@/features/soplado/types'
 import type { InventarioParams, InventarioResponse } from '@/features/inventario/types'
-import type { CargueResultado, ProcesarCarguePayload } from '@/features/cargue-masivo/types'
 import type {
   CerrarPortatilPayload,
   PortatilBusqueda,
@@ -17,13 +16,16 @@ import type {
 import type { TrazabilidadResponse } from '@/features/trazabilidad/types'
 import type { DashboardParams, DashboardResponse } from '@/features/dashboard/types'
 import type {
-  EquipoTrasladoBusqueda,
-  RecibirTrasladoResponse,
+  BusquedaEquipoTraslado,
+  ImportacionResultado,
+  PivoteEquipo,
   RegistrarTrasladoPayload,
   Traslado,
-  TrasladoEquiposResponse,
-  TrasladoListaResponse,
+  TrasladoDetalle,
   TrasladoListaParams,
+  TrasladoListaResponse,
+  Ubicacion,
+  Zona,
 } from '@/features/traslados/types'
 
 const TOKEN_KEY = 'assetflow_token'
@@ -207,19 +209,6 @@ export const api = {
     return request<InventarioResponse>(`/inventario${queryString ? `?${queryString}` : ''}`)
   },
 
-  async procesarCargueMasivo(payload: ProcesarCarguePayload): Promise<CargueResultado> {
-    const form = new FormData()
-    form.append('num_traslado', payload.num_traslado)
-    form.append('ubicacion_origen', payload.ubicacion_origen)
-    form.append('archivo', payload.archivo)
-
-    const res = await request<{ data: CargueResultado }>('/cargue-masivo', {
-      method: 'POST',
-      body: form,
-    })
-    return res.data
-  },
-
   async buscarPortatil(placaId: string): Promise<PortatilBusqueda> {
     const res = await request<{ data: PortatilBusqueda }>(
       `/portatiles/buscar/${encodeURIComponent(placaId)}`,
@@ -279,6 +268,11 @@ export const api = {
     const query = new URLSearchParams()
     if (params.page) query.set('page', String(params.page))
     if (params.per_page) query.set('per_page', String(params.per_page))
+    if (params.codigo) query.set('codigo', params.codigo)
+    if (params.zona_origen) query.set('zona_origen', params.zona_origen)
+    if (params.ubicacion_origen) query.set('ubicacion_origen', params.ubicacion_origen)
+    if (params.zona_destino) query.set('zona_destino', params.zona_destino)
+    if (params.ubicacion_destino) query.set('ubicacion_destino', params.ubicacion_destino)
     if (params.estado) query.set('estado', params.estado)
 
     const queryString = query.toString()
@@ -293,25 +287,122 @@ export const api = {
     return res.data
   },
 
-  async buscarEquipoTraslado(placaId: string): Promise<EquipoTrasladoBusqueda> {
-    const res = await request<{ data: EquipoTrasladoBusqueda }>(
+  async detalleTraslado(id: number): Promise<TrasladoDetalle> {
+    const res = await request<{ data: TrasladoDetalle }>(`/traslados/${id}`)
+    return res.data
+  },
+
+  async buscarEquipoTraslado(placaId: string): Promise<BusquedaEquipoTraslado> {
+    const res = await request<{ data: BusquedaEquipoTraslado }>(
       `/traslados/buscar/${encodeURIComponent(placaId)}`,
     )
     return res.data
   },
 
-  async listarEquiposTraslado(codigo: string): Promise<TrasladoEquiposResponse> {
-    const res = await request<{ data: TrasladoEquiposResponse }>(
-      `/traslados/${encodeURIComponent(codigo)}/equipos`,
-    )
+  async agregarEquipoTraslado(id: number, placaId: string): Promise<PivoteEquipo> {
+    const res = await request<{ data: PivoteEquipo }>(`/traslados/${id}/equipos`, {
+      method: 'POST',
+      body: JSON.stringify({ placa_id: placaId }),
+    })
     return res.data
   },
 
-  async recibirTraslado(codigo: string): Promise<RecibirTrasladoResponse> {
-    const res = await request<{ data: RecibirTrasladoResponse }>(
-      `/traslados/${encodeURIComponent(codigo)}/recibir`,
-      { method: 'POST' },
-    )
+  async importarEquiposTraslado(id: number, archivo: File): Promise<ImportacionResultado> {
+    const form = new FormData()
+    form.append('archivo', archivo)
+
+    const res = await request<{ data: ImportacionResultado }>(`/traslados/${id}/equipos/importar`, {
+      method: 'POST',
+      body: form,
+    })
+    return res.data
+  },
+
+  async quitarEquipoTraslado(id: number, equipoId: number): Promise<void> {
+    await request<{ data: null }>(`/traslados/${id}/equipos/${equipoId}`, { method: 'DELETE' })
+  },
+
+  async despacharTraslado(id: number): Promise<Traslado> {
+    const res = await request<{ data: Traslado }>(`/traslados/${id}/despachar`, { method: 'POST' })
+    return res.data
+  },
+
+  async verificarEquipoTraslado(id: number, placaId: string): Promise<PivoteEquipo> {
+    const res = await request<{ data: PivoteEquipo }>(`/traslados/${id}/equipos/verificar`, {
+      method: 'POST',
+      body: JSON.stringify({ placa_id: placaId }),
+    })
+    return res.data
+  },
+
+  async recibirTraslado(id: number): Promise<Traslado> {
+    const res = await request<{ data: Traslado }>(`/traslados/${id}/recibir`, { method: 'POST' })
+    return res.data
+  },
+
+  async revertirTrasladoApertura(id: number): Promise<Traslado> {
+    const res = await request<{ data: Traslado }>(`/traslados/${id}/revertir-apertura`, {
+      method: 'POST',
+    })
+    return res.data
+  },
+
+  async zonasActivas(): Promise<Zona[]> {
+    const res = await request<{ data: Zona[] }>('/zonas')
+    return res.data
+  },
+
+  async zonasGestion(): Promise<Zona[]> {
+    const res = await request<{ data: Zona[] }>('/zonas-ubicaciones')
+    return res.data
+  },
+
+  async crearZona(payload: { sede: string; nombre: string }): Promise<Zona> {
+    const res = await request<{ data: Zona }>('/zonas', { method: 'POST', body: JSON.stringify(payload) })
+    return res.data
+  },
+
+  async actualizarZona(id: number, payload: { sede: string; nombre: string }): Promise<Zona> {
+    const res = await request<{ data: Zona }>(`/zonas/${id}`, { method: 'PUT', body: JSON.stringify(payload) })
+    return res.data
+  },
+
+  async activarZona(id: number): Promise<Zona> {
+    const res = await request<{ data: Zona }>(`/zonas/${id}/activar`, { method: 'PATCH' })
+    return res.data
+  },
+
+  async inactivarZona(id: number): Promise<Zona> {
+    const res = await request<{ data: Zona }>(`/zonas/${id}/inactivar`, { method: 'PATCH' })
+    return res.data
+  },
+
+  async crearUbicacion(zonaId: number, payload: { nombre: string }): Promise<Ubicacion> {
+    const res = await request<{ data: Ubicacion }>(`/zonas/${zonaId}/ubicaciones`, {
+      method: 'POST',
+      body: JSON.stringify(payload),
+    })
+    return res.data
+  },
+
+  async actualizarUbicacion(
+    id: number,
+    payload: { zona_id: number; nombre: string },
+  ): Promise<Ubicacion> {
+    const res = await request<{ data: Ubicacion }>(`/ubicaciones/${id}`, {
+      method: 'PUT',
+      body: JSON.stringify(payload),
+    })
+    return res.data
+  },
+
+  async activarUbicacion(id: number): Promise<Ubicacion> {
+    const res = await request<{ data: Ubicacion }>(`/ubicaciones/${id}/activar`, { method: 'PATCH' })
+    return res.data
+  },
+
+  async inactivarUbicacion(id: number): Promise<Ubicacion> {
+    const res = await request<{ data: Ubicacion }>(`/ubicaciones/${id}/inactivar`, { method: 'PATCH' })
     return res.data
   },
 }

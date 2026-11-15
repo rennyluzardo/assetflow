@@ -6,6 +6,8 @@ use App\Models\Equipo;
 use App\Models\GarantiaPortatil;
 use App\Models\InventarioGeneral;
 use App\Models\SopladoRegistro;
+use App\Models\TrasladoEquipo;
+use Illuminate\Support\Facades\Storage;
 use Illuminate\Validation\ValidationException;
 
 /**
@@ -38,6 +40,7 @@ final class TrazabilidadService
         $this->agregarEquipos($eventos, $inventario);
         $this->agregarSoplados($eventos, $inventario);
         $this->agregarPortatiles($eventos, $inventario);
+        $this->agregarTraslados($eventos, $inventario);
 
         // Línea de tiempo cronológica (más antiguo primero).
         usort(
@@ -54,7 +57,7 @@ final class TrazabilidadService
                 'descripcion' => $inventario->descripcion,
                 'zona_actual' => $inventario->zona_actual,
                 'num_traslado' => $inventario->num_traslado,
-                'ubicacion_actual' => $inventario->ubicacion_actual?->value,
+                'ubicacion_actual' => $inventario->ubicacion_actual,
                 'estado_actual' => $inventario->estado_actual?->value,
                 'intervenido' => $inventario->intervenido,
                 'fecha_intervencion' => $inventario->fecha_intervencion?->toIso8601String(),
@@ -68,6 +71,7 @@ final class TrazabilidadService
                     'ubicacion' => $evento['ubicacion'],
                     'estado' => $evento['estado'],
                     'foto' => $evento['foto'],
+                    'fotos' => $evento['fotos'],
                     'detalle' => $evento['detalle'],
                     'observaciones' => $evento['observaciones'],
                 ],
@@ -86,9 +90,10 @@ final class TrazabilidadService
             'estacion' => 'Inventario',
             'fecha' => $inventario->created_at,
             'analista' => $inventario->usuarioCargue?->name,
-            'ubicacion' => $inventario->ubicacion_actual?->value,
+            'ubicacion' => $inventario->ubicacion_actual,
             'estado' => null,
             'foto' => null,
+            'fotos' => [],
             'detalle' => 'Ingreso al inventario · Traslado '.$inventario->num_traslado,
             'observaciones' => null,
         ];
@@ -112,6 +117,7 @@ final class TrazabilidadService
                 'ubicacion' => $equipo->ubicacion_destino?->value,
                 'estado' => $equipo->estado?->value,
                 'foto' => $equipo->foto_equipo,
+                'fotos' => $this->fotosUrls($equipo->foto_equipo),
                 'detalle' => $equipo->tipo_gestion->label(),
                 'observaciones' => $equipo->observaciones,
             ];
@@ -138,6 +144,7 @@ final class TrazabilidadService
                 'ubicacion' => $soplado->ubicacion_destino?->value,
                 'estado' => null,
                 'foto' => $soplado->foto_ruta,
+                'fotos' => $this->fotosUrls($soplado->foto_ruta),
                 'detalle' => 'Limpieza y despacho final',
                 'observaciones' => $this->notaTecnicaSoplado($soplado),
             ];
@@ -172,10 +179,69 @@ final class TrazabilidadService
                 'ubicacion' => $registro->ubicacion_destino?->value,
                 'estado' => $registro->estado?->value,
                 'foto' => $registro->foto_evidencia,
+                'fotos' => $this->fotosUrls(
+                    $registro->foto_evidencia,
+                    $registro->getAttribute('foto_cierre'),
+                ),
                 'detalle' => $detalle,
                 'observaciones' => $registro->observaciones,
             ];
         }
+    }
+
+    /**
+     * Historia de traslados del activo: una entrada por cada lote en el que el
+     * activo viajó. El estado se deja en `null` para no pintar la insignia de
+     * estación (el ciclo ABIERTO/EN_TRANSITO/RECIBIDO no es un estado de taller).
+     *
+     * @param  list<array<string, mixed>>  $eventos
+     */
+    private function agregarTraslados(array &$eventos, InventarioGeneral $inventario): void
+    {
+        $trasladoEquipos = TrasladoEquipo::where('inventario_id', $inventario->id)
+            ->with('traslado.despachador')
+            ->orderBy('created_at')
+            ->get();
+
+        foreach ($trasladoEquipos as $pivote) {
+            $traslado = $pivote->traslado;
+
+            if (! $traslado) {
+                continue;
+            }
+
+            $eventos[] = [
+                'tipo' => 'traslado',
+                'estacion' => 'Traslado',
+                'fecha' => $pivote->created_at,
+                'analista' => $traslado->despachador?->name,
+                'ubicacion' => $traslado->ubicacion_destino,
+                'estado' => null,
+                'foto' => null,
+                'fotos' => [],
+                'detalle' => 'Traslado '.$traslado->codigo.' · '.$traslado->zona_origen.' → '.$traslado->zona_destino,
+                'observaciones' => $traslado->observaciones,
+            ];
+        }
+    }
+
+    /**
+     * Convierte las rutas de evidencia almacenadas en el disco `public` a URLs
+     * accesibles (`/storage/...`), descartando valores nulos o vacíos.
+     *
+     * @return list<string>
+     */
+    private function fotosUrls(?string ...$rutas): array
+    {
+        $rutas = array_filter(
+            $rutas,
+            fn (?string $ruta): bool => is_string($ruta) && trim($ruta) !== '',
+        );
+
+        return array_values(array_unique(array_map(
+            fn (string $ruta): string => Storage::disk('public')->url(trim($ruta)),
+            $rutas,
+        )));
     }
 
     /**

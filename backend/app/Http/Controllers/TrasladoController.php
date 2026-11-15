@@ -2,8 +2,13 @@
 
 namespace App\Http\Controllers;
 
+use App\Http\Requests\Traslados\AgregarEquipoTrasladoRequest;
+use App\Http\Requests\Traslados\ImportarExcelTrasladoRequest;
 use App\Http\Requests\Traslados\ListarTrasladosRequest;
+use App\Http\Requests\Traslados\RecibirTrasladoRequest;
 use App\Http\Requests\Traslados\RegistrarTrasladoRequest;
+use App\Http\Requests\Traslados\VerificarEquipoTrasladoRequest;
+use App\Models\Traslado;
 use App\Services\Traslados\TrasladoService;
 use Illuminate\Http\JsonResponse;
 
@@ -23,18 +28,66 @@ class TrasladoController extends Controller
         return response()->json(['data' => $traslado], 201);
     }
 
+    public function show(Traslado $traslado): JsonResponse
+    {
+        return response()->json(['data' => $this->traslados->detalle($traslado)]);
+    }
+
     public function buscar(string $placaId): JsonResponse
     {
         return response()->json(['data' => $this->traslados->buscarEquipo($placaId)]);
     }
 
-    public function equipos(string $codigo): JsonResponse
+    public function agregarEquipo(Traslado $traslado, AgregarEquipoTrasladoRequest $request): JsonResponse
     {
-        return response()->json(['data' => $this->traslados->equipos($codigo)]);
+        $pivote = $this->traslados->agregarEquipo($traslado, $request->validated('placa_id'));
+
+        return response()->json(['data' => $pivote], 201);
     }
 
-    public function recibir(string $codigo): JsonResponse
+    public function importarExcel(Traslado $traslado, ImportarExcelTrasladoRequest $request): JsonResponse
     {
-        return response()->json(['data' => $this->traslados->recibir($codigo, request()->user())]);
+        return response()->json([
+            'data' => $this->traslados->importarExcel(
+                $traslado,
+                $request->validated('archivo'),
+                $request->user(),
+            ),
+        ]);
+    }
+
+    public function quitarEquipo(Traslado $traslado, int $equipoId): JsonResponse
+    {
+        $this->traslados->quitarEquipo($traslado, $equipoId);
+
+        return response()->json(['data' => null]);
+    }
+
+    public function despachar(Traslado $traslado): JsonResponse
+    {
+        return response()->json([
+            'data' => $this->traslados->despachar($traslado, request()->user()),
+        ]);
+    }
+
+    public function verificarEquipo(Traslado $traslado, VerificarEquipoTrasladoRequest $request): JsonResponse
+    {
+        $pivote = $this->traslados->verificarEquipo($traslado, $request->validated('placa_id'), request()->user());
+
+        return response()->json(['data' => $pivote]);
+    }
+
+    public function recibir(Traslado $traslado, RecibirTrasladoRequest $request): JsonResponse
+    {
+        return response()->json([
+            'data' => $this->traslados->recibir($traslado, request()->user()),
+        ]);
+    }
+
+    public function revertirApertura(Traslado $traslado): JsonResponse
+    {
+        return response()->json([
+            'data' => $this->traslados->revertirApertura($traslado, request()->user()),
+        ]);
     }
 }

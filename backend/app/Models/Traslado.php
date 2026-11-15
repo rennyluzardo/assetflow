@@ -2,7 +2,7 @@
 
 namespace App\Models;
 
-use App\Enums\SedeOperativaEnum;
+use App\Enums\TrasladoEstadoEnum;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
@@ -19,36 +19,52 @@ class Traslado extends Model
     protected $fillable = [
         'codigo',
         'zona_origen',
-        'ubicacion_origen_exacta',
+        'ubicacion_origen',
         'zona_destino',
-        'ubicacion_destino_exacta',
+        'ubicacion_destino',
         'estado',
-        'analista_id',
+        'observaciones',
+        'observacion_cierre_parcial',
+        'creado_por_id',
+        'despachado_por_id',
+        'despachado_at',
+        'recibido_por_id',
+        'recibido_at',
     ];
 
     protected function casts(): array
     {
         return [
-            'zona_origen' => SedeOperativaEnum::class,
-            'zona_destino' => SedeOperativaEnum::class,
+            'estado' => TrasladoEstadoEnum::class,
+            'despachado_at' => 'datetime',
+            'recibido_at' => 'datetime',
             // `withCount` devuelve el agregado como string en algunos drivers
             // (p. ej. PostgreSQL bigint); se normaliza a int para el JSON.
-            'equipos_count' => 'integer',
+            'equipos_total' => 'integer',
+            'equipos_recibidos' => 'integer',
         ];
     }
 
-    public function analista(): BelongsTo
+    public function creador(): BelongsTo
     {
-        return $this->belongsTo(User::class, 'analista_id');
+        return $this->belongsTo(User::class, 'creado_por_id');
+    }
+
+    public function despachador(): BelongsTo
+    {
+        return $this->belongsTo(User::class, 'despachado_por_id');
+    }
+
+    public function receptor(): BelongsTo
+    {
+        return $this->belongsTo(User::class, 'recibido_por_id');
     }
 
     /**
-     * Activos que componen este traslado. El vínculo es por el código libre
-     * `inventario_general.num_traslado` (no hay FK física), igual que en
-     * `TrasladoService::equiposDelTraslado()`.
+     * Activos que componen este traslado (tabla pivote `traslado_equipos`).
      */
-    public function inventario(): HasMany
+    public function equipos(): HasMany
     {
-        return $this->hasMany(InventarioGeneral::class, 'num_traslado', 'codigo');
+        return $this->hasMany(TrasladoEquipo::class, 'traslado_id');
     }
 }

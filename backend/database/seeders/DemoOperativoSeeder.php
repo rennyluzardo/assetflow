@@ -8,9 +8,9 @@ use App\Enums\EstadoEquipoEnum;
 use App\Enums\GravedadNovedadEnum;
 use App\Enums\ModuloIntervencionEnum;
 use App\Enums\OrigenDanoGarantiaEnum;
-use App\Enums\SedeOperativaEnum;
 use App\Enums\SubtipoIntervencionEnum;
 use App\Enums\TipoGestionEnum;
+use App\Enums\TrasladoEstadoEnum;
 use App\Enums\UbicacionDestinoEnum;
 use App\Models\Equipo;
 use App\Models\GarantiaPortatil;
@@ -18,7 +18,6 @@ use App\Models\InventarioGeneral;
 use App\Models\SopladoRegistro;
 use App\Models\Traslado;
 use App\Models\User;
-use App\Services\Traslados\TrasladoService;
 use Illuminate\Database\Seeder;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\DB;
@@ -126,26 +125,33 @@ class DemoOperativoSeeder extends Seeder
 
     /**
      * Cabeceras en `traslados` de los lotes demo con rutas realistas: Bogotá
-     * queda como destino (bodega de garantías) y los lotes 319127/319128
-     * provienen de Medellín, mientras 319126 nace en la propia Bogotá.
+     * queda como destino (garantías) y los lotes 319127/319128 provienen de
+     * Medellín, mientras 319126 nace en la propia Bogotá.
+     *
+     * Todos los lotes quedan en RECIBIDO: su equipo ya llegó al taller y debe
+     * verse en `/inventario` y ser intervenible en las estaciones.
      */
     private function crearTraslados(): void
     {
         $rutas = [
-            '319126' => [SedeOperativaEnum::BOGOTA, 'Bodega Norte'],
-            '319127' => [SedeOperativaEnum::MEDELLIN, 'Bodega Sur'],
-            '319128' => [SedeOperativaEnum::MEDELLIN, 'Bodega Sur'],
+            '319126' => ['BOGOTA', 'ALMACEN'],
+            '319127' => ['MEDELLIN', 'ALMACEN'],
+            '319128' => ['MEDELLIN', 'ALMACEN'],
         ];
 
-        foreach ($rutas as $codigo => [$origen, $origenExacta]) {
+        foreach ($rutas as $codigo => [$origen, $origenUbicacion]) {
             Traslado::create([
                 'codigo' => $codigo,
                 'zona_origen' => $origen,
-                'ubicacion_origen_exacta' => $origenExacta,
-                'zona_destino' => SedeOperativaEnum::BOGOTA,
-                'ubicacion_destino_exacta' => '30052001965-CNCTF_P01_GARANTIAS',
-                'estado' => TrasladoService::EN_TRANSITO,
-                'analista_id' => $this->cargue->id,
+                'ubicacion_origen' => $origenUbicacion,
+                'zona_destino' => 'BOGOTA',
+                'ubicacion_destino' => 'SALA_DE_GARANTIA',
+                'estado' => TrasladoEstadoEnum::RECIBIDO,
+                'creado_por_id' => $this->cargue->id,
+                'despachado_por_id' => $this->cargue->id,
+                'despachado_at' => now(),
+                'recibido_por_id' => $this->cargue->id,
+                'recibido_at' => now(),
             ]);
         }
     }

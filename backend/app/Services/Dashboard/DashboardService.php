@@ -436,7 +436,7 @@ final class DashboardService
             $this->labelModulo($modulo),
             $fila->referencia ?? '',
             $tipoGestion,
-            $fila->ubicacion_actual?->label() ?? '',
+            $fila->ubicacion_actual ?? '',
             $fila->estado_actual?->label() ?? '',
             $nombres->get($fila->analista_intervencion) ?? '',
             $fila->fecha_intervencion?->toDateTimeString() ?? '',

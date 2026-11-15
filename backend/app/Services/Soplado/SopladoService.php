@@ -5,6 +5,7 @@ namespace App\Services\Soplado;
 use App\Enums\EstadoEquipoEnum;
 use App\Enums\UbicacionDestinoEnum;
 use App\Models\Equipo;
+use App\Models\InventarioGeneral;
 use App\Models\SopladoRegistro;
 use App\Services\Equipos\CpuStateMachineService;
 use Illuminate\Support\Facades\DB;
@@ -16,6 +17,8 @@ final class SopladoService
 
     public function registrar(string $placaId, array $datos, UbicacionDestinoEnum $destino, int $analistaId): SopladoRegistro
     {
+        InventarioGeneral::asegurarRecibido($placaId);
+
         $equipo = Equipo::where('placa_id', $placaId)
             ->where('estado', EstadoEquipoEnum::POR_SOPLAR->value)
             ->latest('id')

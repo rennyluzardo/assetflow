@@ -17,7 +17,7 @@ return new class extends Migration
             $table->string('descripcion');
             $table->string('zona_actual')->nullable();
             $table->string('ubicacion_actual')->default('ALMACEN');
-            $table->string('num_traslado');
+            $table->string('num_traslado')->nullable();
             $table->string('estado_actual')->nullable();
             $table->boolean('intervenido')->default(false);
             $table->foreignId('usuario_cargue')->constrained('users')->onDelete('restrict');

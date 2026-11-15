@@ -4,7 +4,7 @@ import { ApiError } from '@/lib/api'
 import { ScannerInput } from '@/components/ScannerInput'
 import type { ScannerStatus } from '@/components/ScannerInput'
 import { StatusBadge } from '@/components/StatusBadge'
-import { UBICACION_LABELS } from '@/constants/equipos'
+import { ubicacionLabel } from '@/constants/equipos'
 import { cn } from '@/lib/cn'
 import { useBuscarTrazabilidad } from './api'
 import { TrazabilidadTimeline } from './TrazabilidadTimeline'
@@ -21,7 +21,7 @@ function ActivoResumen({ activo }: { activo: ActivoTrazabilidad }) {
       <Campo etiqueta="Referencia">{activo.referencia ?? '—'}</Campo>
       <Campo etiqueta="Descripción">{activo.descripcion}</Campo>
       <Campo etiqueta="Ubicación actual">
-        {activo.ubicacion_actual ? UBICACION_LABELS[activo.ubicacion_actual] : '—'}
+        {ubicacionLabel(activo.ubicacion_actual)}
       </Campo>
       {activo.estado_actual && (
         <div>

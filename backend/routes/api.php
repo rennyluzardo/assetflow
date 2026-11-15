@@ -1,7 +1,6 @@
 <?php
 
 use App\Http\Controllers\AuthController;
-use App\Http\Controllers\CargueMasivoController;
 use App\Http\Controllers\DashboardController;
 use App\Http\Controllers\EquiposController;
 use App\Http\Controllers\InventarioController;
@@ -9,6 +8,7 @@ use App\Http\Controllers\PortatilesController;
 use App\Http\Controllers\SopladoController;
 use App\Http\Controllers\TrazabilidadController;
 use App\Http\Controllers\TrasladoController;
+use App\Http\Controllers\ZonaUbicacionController;
 use Illuminate\Support\Facades\Route;
 
 Route::post('/login', [AuthController::class, 'login'])->name('auth.login');
@@ -40,10 +40,6 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::get('/inventario', [InventarioController::class, 'index'])
         ->middleware('permission:inventario.ver')
         ->name('inventario.index');
-
-    Route::post('/cargue-masivo', [CargueMasivoController::class, 'store'])
-        ->middleware('permission:cargue_masivo.ejecutar')
-        ->name('cargue-masivo.store');
 
     Route::get('/portatiles', [PortatilesController::class, 'index'])
         ->middleware('permission:portatiles.ver_bitacora')
@@ -85,15 +81,56 @@ Route::middleware('auth:sanctum')->group(function () {
         ->middleware('permission:traslados.ver')
         ->name('traslados.buscar');
 
-    Route::get('/traslados/{codigo}/equipos', [TrasladoController::class, 'equipos'])
+    Route::get('/traslados/{traslado}', [TrasladoController::class, 'show'])
         ->middleware('permission:traslados.ver')
-        ->name('traslados.equipos');
+        ->name('traslados.show');
 
     Route::post('/traslados', [TrasladoController::class, 'store'])
         ->middleware('permission:traslados.registrar')
         ->name('traslados.store');
 
-    Route::post('/traslados/{codigo}/recibir', [TrasladoController::class, 'recibir'])
+    Route::post('/traslados/{traslado}/equipos', [TrasladoController::class, 'agregarEquipo'])
+        ->middleware('permission:traslados.registrar')
+        ->name('traslados.agregar-equipo');
+
+    Route::post('/traslados/{traslado}/equipos/importar', [TrasladoController::class, 'importarExcel'])
+        ->middleware('permission:traslados.registrar')
+        ->name('traslados.importar');
+
+    Route::delete('/traslados/{traslado}/equipos/{equipoId}', [TrasladoController::class, 'quitarEquipo'])
+        ->middleware('permission:traslados.registrar')
+        ->name('traslados.quitar-equipo');
+
+    Route::post('/traslados/{traslado}/despachar', [TrasladoController::class, 'despachar'])
+        ->middleware('permission:traslados.registrar')
+        ->name('traslados.despachar');
+
+    Route::post('/traslados/{traslado}/equipos/verificar', [TrasladoController::class, 'verificarEquipo'])
+        ->middleware('permission:traslados.registrar')
+        ->name('traslados.verificar');
+
+    Route::post('/traslados/{traslado}/recibir', [TrasladoController::class, 'recibir'])
         ->middleware('permission:traslados.registrar')
         ->name('traslados.recibir');
+
+    Route::post('/traslados/{traslado}/revertir-apertura', [TrasladoController::class, 'revertirApertura'])
+        ->middleware('permission:traslados.registrar')
+        ->name('traslados.revertir-apertura');
+
+    // Maestro de zonas y ubicaciones: selectores de destino (cualquier usuario)
+    // y ABM de administración.
+    Route::get('/zonas', [ZonaUbicacionController::class, 'zonasActivas'])
+        ->name('zonas.activas');
+
+    Route::middleware('permission:zonas_ubicaciones.gestionar')->group(function () {
+        Route::get('/zonas-ubicaciones', [ZonaUbicacionController::class, 'gestion'])->name('zonas.gestion');
+        Route::post('/zonas', [ZonaUbicacionController::class, 'crearZona'])->name('zonas.store');
+        Route::put('/zonas/{zona}', [ZonaUbicacionController::class, 'actualizarZona'])->name('zonas.update');
+        Route::patch('/zonas/{zona}/activar', [ZonaUbicacionController::class, 'activarZona'])->name('zonas.activar');
+        Route::patch('/zonas/{zona}/inactivar', [ZonaUbicacionController::class, 'inactivarZona'])->name('zonas.inactivar');
+        Route::post('/zonas/{zona}/ubicaciones', [ZonaUbicacionController::class, 'crearUbicacion'])->name('ubicaciones.store');
+        Route::put('/ubicaciones/{ubicacion}', [ZonaUbicacionController::class, 'actualizarUbicacion'])->name('ubicaciones.update');
+        Route::patch('/ubicaciones/{ubicacion}/activar', [ZonaUbicacionController::class, 'activarUbicacion'])->name('ubicaciones.activar');
+        Route::patch('/ubicaciones/{ubicacion}/inactivar', [ZonaUbicacionController::class, 'inactivarUbicacion'])->name('ubicaciones.inactivar');
+    });
 });

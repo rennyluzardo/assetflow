@@ -1,90 +1,88 @@
-import { useState } from 'react'
 import { Drawer } from '@/components/Drawer'
-import { useEquiposTraslado, useRecibirTraslado } from './api'
-import { EquiposLista, EstadoTrasladoBadge, mensajeError, puedeRecibir } from './componentes'
-import { ZONA_LABELS } from './constantes'
+import { useDetalleTraslado } from './api'
+import { EstadoTrasladoBadge, formatearFecha, rutaTraslado } from './componentes'
+import { PanelAbierto } from './PanelAbierto'
+import { PanelRecibido } from './PanelRecibido'
+import { PanelTransito } from './PanelTransito'
 import type { Traslado } from './types'
 
 interface TrasladoDrawerProps {
-  traslado: Traslado
-  sede: string | null
+  trasladoId: number
   onCerrar: () => void
 }
 
+/** Responsable con etiqueta de una etapa del ciclo de vida. */
+function Responsable({ etiqueta, nombre }: { etiqueta: string; nombre: string | undefined | null }) {
+  return (
+    <p className="text-xs text-slate-500">
+      <span className="font-medium text-slate-600">{etiqueta}:</span>{' '}
+      {nombre ?? '—'}
+    </p>
+  )
+}
+
+/** Cabecera del detalle: código, estado, ruta, responsables y observaciones. */
+function Cabecera({ traslado }: { traslado: Traslado }) {
+  return (
+    <div className="space-y-3">
+      <div className="flex items-start justify-between gap-3">
+        <div className="min-w-0">
+          <p className="text-xs uppercase tracking-wide text-slate-400">Código de traslado</p>
+          <p className="font-mono text-2xl font-semibold tracking-tight text-slate-900">
+            {traslado.codigo}
+          </p>
+          <p className="mt-1 text-sm text-slate-600">{rutaTraslado(traslado)}</p>
+        </div>
+        <EstadoTrasladoBadge estado={traslado.estado} />
+      </div>
+
+      {traslado.observaciones && (
+        <p className="rounded-md border border-line bg-canvas p-3 text-sm text-slate-600">
+          {traslado.observaciones}
+        </p>
+      )}
+
+      <div className="grid grid-cols-2 gap-x-4 gap-y-1 rounded-md border border-line bg-canvas p-3">
+        <Responsable etiqueta="Creado por" nombre={traslado.creador?.name} />
+        <Responsable etiqueta="Creado" nombre={formatearFecha(traslado.created_at)} />
+        <Responsable etiqueta="Despachado por" nombre={traslado.despachador?.name} />
+        <Responsable etiqueta="Despachado" nombre={formatearFecha(traslado.despachado_at)} />
+        <Responsable etiqueta="Recibido por" nombre={traslado.receptor?.name} />
+        <Responsable etiqueta="Recibido" nombre={formatearFecha(traslado.recibido_at)} />
+      </div>
+    </div>
+  )
+}
+
 /**
- * Detalle lateral de un traslado: preserva el contexto del listado maestro y
- * muestra los equipos asociados (`useEquiposTraslado`) y, si corresponde, la
- * acción de recepción en la sede de destino.
+ * Detalle lateral adaptativo: según el estado del traslado (ABIERTO,
+ * EN_TRANSITO o RECIBIDO) monta el panel de trabajo correspondiente.
  */
-export function TrasladoDrawer({ traslado, sede, onCerrar }: TrasladoDrawerProps) {
-  const [recibido, setRecibido] = useState(false)
-  const equipos = useEquiposTraslado(traslado.codigo)
-  const recibir = useRecibirTraslado()
-
-  const estado: Traslado['estado'] = recibido ? 'RECIBIDO' : traslado.estado
-  const mostrarRecibir = puedeRecibir(traslado, sede) && !recibido
-  const ubicaciones = [traslado.ubicacion_origen_exacta, traslado.ubicacion_destino_exacta]
-    .filter(Boolean)
-    .join(' → ')
-
-  const handleRecibir = () => {
-    recibir.mutate(traslado.codigo, { onSuccess: () => setRecibido(true) })
-  }
+export function TrasladoDrawer({ trasladoId, onCerrar }: TrasladoDrawerProps) {
+  const detalle = useDetalleTraslado(trasladoId)
+  const traslado = detalle.data?.traslado
 
   return (
-    <Drawer
-      titulo={`Traslado ${traslado.codigo}`}
-      onCerrar={onCerrar}
-      footer={
-        mostrarRecibir ? (
-          <button
-            type="button"
-            onClick={handleRecibir}
-            disabled={recibir.isPending}
-            className="w-full rounded-md bg-slate-900 px-4 py-2.5 text-sm font-medium text-white transition-colors hover:bg-slate-800 disabled:cursor-not-allowed disabled:opacity-40"
-          >
-            {recibir.isPending ? 'Recibiendo…' : 'Recibir Traslado'}
-          </button>
-        ) : undefined
-      }
-    >
-      <div className="space-y-5">
-        <div className="flex items-start justify-between gap-3">
-          <div className="min-w-0">
-            <p className="text-sm text-slate-500">
-              {ZONA_LABELS[traslado.zona_origen]} → {ZONA_LABELS[traslado.zona_destino]}
-            </p>
-            {ubicaciones && <p className="mt-0.5 text-xs text-slate-400">{ubicaciones}</p>}
-          </div>
-          <EstadoTrasladoBadge estado={estado} />
-        </div>
+    <Drawer titulo="Detalle de traslado" onCerrar={onCerrar}>
+      {detalle.isLoading ? (
+        <p className="text-sm text-slate-400">Cargando traslado…</p>
+      ) : detalle.isError || !traslado ? (
+        <p className="text-sm text-estado-terracota-ink">No se pudo cargar el traslado.</p>
+      ) : (
+        <div className="space-y-5">
+          <Cabecera traslado={traslado} />
 
-        <div>
-          <h3 className="mb-2 text-sm font-semibold text-slate-700">Lista de equipos del traslado</h3>
-          {equipos.isLoading ? (
-            <p className="text-sm text-slate-400">Cargando equipos…</p>
-          ) : equipos.isError ? (
-            <p className="text-sm text-estado-terracota-ink">No se pudieron cargar los equipos.</p>
-          ) : (
-            <EquiposLista equipos={equipos.data?.equipos ?? []} />
+          {traslado.estado === 'ABIERTO' && (
+            <PanelAbierto trasladoId={trasladoId} equipos={detalle.data?.equipos ?? []} />
+          )}
+          {traslado.estado === 'EN_TRANSITO' && (
+            <PanelTransito trasladoId={trasladoId} equipos={detalle.data?.equipos ?? []} />
+          )}
+          {traslado.estado === 'RECIBIDO' && (
+            <PanelRecibido equipos={detalle.data?.equipos ?? []} />
           )}
         </div>
-
-        {recibir.isError && (
-          <div className="rounded-md border border-estado-terracota-line bg-estado-terracota p-3">
-            <p className="text-sm font-medium text-estado-terracota-ink">Recepción bloqueada</p>
-            <p className="mt-1 text-sm text-estado-terracota-ink/90">{mensajeError(recibir.error)}</p>
-          </div>
-        )}
-
-        {recibido && (
-          <div className="rounded-md border border-estado-verde-line bg-estado-verde p-3">
-            <p className="text-sm font-medium text-estado-verde-ink">
-              Traslado {traslado.codigo} recibido correctamente.
-            </p>
-          </div>
-        )}
-      </div>
+      )}
     </Drawer>
   )
 }

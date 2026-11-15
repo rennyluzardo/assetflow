@@ -57,7 +57,7 @@ export interface PortatilBusqueda {
   referencia: string | null
   descripcion: string
   num_traslado: string
-  ubicacion_actual: UbicacionDestino | null
+  ubicacion_actual: string | null
   estado_actual: EstadoEquipo | null
   portatil_activo: PortatilActivo | null
 }

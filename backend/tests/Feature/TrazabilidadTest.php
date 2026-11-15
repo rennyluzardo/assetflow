@@ -84,9 +84,19 @@ it('unifica la línea de tiempo de CPU y soplado en orden cronológico', functio
     expect($soplado['analista'])->toBe('Analista de Prueba');
     expect($soplado['foto'])->toStartWith('soplado/');
 
+    // Cada hito expone sus evidencias normalizadas a URL pública.
+    expect($soplado['fotos'])->toHaveCount(1);
+    expect($soplado['fotos'][0])->toStartWith('/storage/soplado/');
+
     // Las observaciones técnicas del diagnóstico de CPU se exponen tal cual.
     $equipo = collect($eventos)->firstWhere('tipo', 'equipos');
     expect($equipo['observaciones'])->toBe('Novedad con acumulación de polvo.');
+    expect($equipo['fotos'])->toHaveCount(1);
+    expect($equipo['fotos'][0])->toStartWith('/storage/equipos/');
+
+    // Los hitos sin evidencia fotográfica devuelven un arreglo vacío.
+    $ingreso = collect($eventos)->firstWhere('tipo', 'inventario');
+    expect($ingreso['fotos'])->toBe([]);
 
     // El evento de soplado expone la nota técnica derivada de la inspección.
     expect($soplado['observaciones'])->toContain('Suciedad: Polvo');
@@ -124,6 +134,32 @@ it('incluye el evento de portátil y permite buscar por serial', function () {
     expect($portatil['estado'])->toBe('COMPLETADO');
     expect($portatil['estacion'])->toBe('Portátil');
     expect($portatil['detalle'])->toContain('Funcional');
+    expect($portatil['fotos'])->toBe([]);
+});
+
+it('expone la evidencia fotográfica del portátil cuando existe', function () {
+    InventarioGeneral::factory()->create([
+        'placa_id' => 'AF-TRZ-LAP-FOTO',
+        'serial' => 'SN-TRZ-LAP-FOTO',
+        'usuario_cargue' => $this->analista->id,
+    ]);
+
+    $registro = $this->postJson('/api/portatiles', [
+        'placa_id' => 'AF-TRZ-LAP-FOTO',
+        'clasificacion' => 'FUNCIONAL',
+        'test_lenovo' => true,
+        'ubicacion_destino' => 'ALMACEN',
+    ])->assertCreated()->json('data');
+
+    $this->post("/api/portatiles/{$registro['id']}/foto", [
+        'foto_evidencia' => UploadedFile::fake()->image('evidencia.jpg'),
+    ], ['Accept' => 'application/json'])->assertOk();
+
+    $portatil = collect($this->getJson('/api/trazabilidad?q=AF-TRZ-LAP-FOTO')->json('eventos'))
+        ->firstWhere('tipo', 'portatil');
+
+    expect($portatil['fotos'])->toHaveCount(1);
+    expect($portatil['fotos'][0])->toStartWith('/storage/portatiles/');
 });
 
 it('expone las observaciones técnicas exactas de un diagnóstico de portátil', function () {

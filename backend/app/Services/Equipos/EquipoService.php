@@ -32,6 +32,8 @@ final class EquipoService
 
     public function buscar(string $placaId): array
     {
+        InventarioGeneral::asegurarRecibido($placaId);
+
         $inventario = InventarioGeneral::where('placa_id', $placaId)->firstOrFail();
         $equipo = Equipo::where('placa_id', $placaId)->latest('id')->first();
 
@@ -41,7 +43,7 @@ final class EquipoService
             'referencia' => $inventario->referencia,
             'descripcion' => $inventario->descripcion,
             'num_traslado' => $inventario->num_traslado,
-            'ubicacion_actual' => $inventario->ubicacion_actual?->value,
+            'ubicacion_actual' => $inventario->ubicacion_actual,
             'estado_actual' => $inventario->estado_actual?->value,
             'equipo_activo' => $equipo
                 ? [
@@ -74,6 +76,8 @@ final class EquipoService
 
     public function registrar(array $datos, EstadoEquipoEnum $estado, UbicacionDestinoEnum $destino, int $analistaId): Equipo
     {
+        InventarioGeneral::asegurarRecibido($datos['placa_id']);
+
         $inventario = InventarioGeneral::where('placa_id', $datos['placa_id'])->firstOrFail();
 
         $equipo = Equipo::create([

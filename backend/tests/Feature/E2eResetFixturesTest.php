@@ -176,6 +176,29 @@ it('elimina las cabeceras de traslado TR-E2E-* sin tocar las reales', function (
     $this->assertDatabaseHas('traslados', ['codigo' => '319126']);
 });
 
+it('elimina el traslado exacto indicado con --codigo sin tocar el resto', function () {
+    Traslado::create([
+        'codigo' => '328351',
+        'zona_origen' => null,
+        'zona_destino' => 'BOGOTA',
+        'estado' => 'ABIERTO',
+        'analista_id' => null,
+    ]);
+
+    Traslado::create([
+        'codigo' => '328352',
+        'zona_origen' => null,
+        'zona_destino' => 'BOGOTA',
+        'estado' => 'ABIERTO',
+        'analista_id' => null,
+    ]);
+
+    $this->artisan('e2e:reset-fixtures', ['--codigo' => '328351'])->assertSuccessful();
+
+    $this->assertDatabaseMissing('traslados', ['codigo' => '328351']);
+    $this->assertDatabaseHas('traslados', ['codigo' => '328352']);
+});
+
 it('está bloqueado en producción', function () {
     $originalEnv = $this->app['env'];
     $this->app['env'] = 'production';

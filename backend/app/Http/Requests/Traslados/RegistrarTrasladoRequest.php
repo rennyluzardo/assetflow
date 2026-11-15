@@ -2,10 +2,12 @@
 
 namespace App\Http\Requests\Traslados;
 
-use App\Enums\SedeOperativaEnum;
 use Illuminate\Foundation\Http\FormRequest;
-use Illuminate\Validation\Rules\Enum;
 
+/**
+ * Creación de un traslado: solo se pide el destino. El código es autogenerado
+ * y el origen se "bautiza" automáticamente con el primer equipo escaneado.
+ */
 class RegistrarTrasladoRequest extends FormRequest
 {
     public function authorize(): bool
@@ -16,11 +18,9 @@ class RegistrarTrasladoRequest extends FormRequest
     public function rules(): array
     {
         return [
-            'codigo' => ['required', 'string', 'max:255', 'unique:traslados,codigo'],
-            'zona_origen' => ['required', new Enum(SedeOperativaEnum::class)],
-            'ubicacion_origen_exacta' => ['nullable', 'string', 'max:255'],
-            'zona_destino' => ['required', new Enum(SedeOperativaEnum::class)],
-            'ubicacion_destino_exacta' => ['nullable', 'string', 'max:255'],
+            'zona_destino' => ['required', 'string', 'max:255'],
+            'ubicacion_destino' => ['required', 'string', 'max:255'],
+            'observaciones' => ['nullable', 'string', 'max:2000'],
         ];
     }
 }

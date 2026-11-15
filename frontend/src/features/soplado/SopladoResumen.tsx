@@ -1,5 +1,5 @@
 import type { InventarioBusqueda } from '@/types/equipos'
-import { UBICACION_LABELS } from '@/constants/equipos'
+import { ubicacionLabel } from '@/constants/equipos'
 
 /** Datos autocompletados desde inventario al escanear una placa en cola de soplado. */
 export function SopladoResumen({ equipo }: { equipo: InventarioBusqueda }) {
@@ -8,7 +8,7 @@ export function SopladoResumen({ equipo }: { equipo: InventarioBusqueda }) {
       <Campo etiqueta="Serial">{equipo.serial}</Campo>
       <Campo etiqueta="N.º Traslado">{equipo.num_traslado}</Campo>
       <Campo etiqueta="Ubicación actual">
-        {equipo.ubicacion_actual ? UBICACION_LABELS[equipo.ubicacion_actual] : '—'}
+        {ubicacionLabel(equipo.ubicacion_actual)}
       </Campo>
     </dl>
   )

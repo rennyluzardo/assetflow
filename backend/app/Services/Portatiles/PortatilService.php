@@ -86,6 +86,8 @@ final class PortatilService
      */
     public function buscar(string $placaId): array
     {
+        InventarioGeneral::asegurarRecibido($placaId);
+
         $inventario = InventarioGeneral::where('placa_id', $placaId)->firstOrFail();
         $registro = GarantiaPortatil::where('placa_id', $placaId)
             ->whereIn('estado', [
@@ -101,7 +103,7 @@ final class PortatilService
             'referencia' => $inventario->referencia,
             'descripcion' => $inventario->descripcion,
             'num_traslado' => $inventario->num_traslado,
-            'ubicacion_actual' => $inventario->ubicacion_actual?->value,
+            'ubicacion_actual' => $inventario->ubicacion_actual,
             'estado_actual' => $inventario->estado_actual?->value,
             'portatil_activo' => $registro
                 ? [
@@ -124,6 +126,8 @@ final class PortatilService
         UbicacionDestinoEnum $destino,
         int $analistaId,
     ): GarantiaPortatil {
+        InventarioGeneral::asegurarRecibido($datos['placa_id']);
+
         $inventario = InventarioGeneral::where('placa_id', $datos['placa_id'])->firstOrFail();
 
         // Garantía de fábrica: el origen se fija automáticamente, no lo elige el usuario.
