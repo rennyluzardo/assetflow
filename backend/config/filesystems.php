@@ -1,5 +1,22 @@
 <?php
 
+/*
+| Raíz del disco `public` para evidencias fotográficas. Normaliza las barras
+| (Windows suele escribir `D:\Fotos` o `D://Fotos`) e ignora rutas con letra
+| de unidad de Windows cuando se ejecuta en macOS o Linux.
+*/
+$rawFotosPath = env('FOTOS_STORAGE_PATH');
+
+if (
+    is_string($rawFotosPath) &&
+    $rawFotosPath !== '' &&
+    !(PHP_OS_FAMILY !== 'Windows' && preg_match('/^[A-Za-z]:/', $rawFotosPath))
+) {
+    $fotosRoot = rtrim(preg_replace('#/+#', '/', str_replace('\\', '/', $rawFotosPath)), '/');
+} else {
+    $fotosRoot = storage_path('app/public');
+}
+
 return [
 
     /*
@@ -33,15 +50,22 @@ return [
         'local' => [
             'driver' => 'local',
             'root' => storage_path('app/private'),
-            'serve' => true,
+            // El framework registra `GET /storage/{path}` para cada disco con
+            // `serve => true`; esa URI choca con la ruta de `routes/web.php`
+            // que sirve las evidencias del disco `public`. Este proyecto no
+            // sirve archivos privados, así que se desactiva aquí.
+            'serve' => false,
             'throw' => false,
             'report' => false,
         ],
 
         'public' => [
             'driver' => 'local',
-            'root' => storage_path('app/public'),
-            'url' => env('APP_URL').'/storage',
+            'root' => $fotosRoot,
+            // Ruta relativa: cuando la app se expone por ngrok o Cloudflare
+            // Tunnel, el navegador remoto la resuelve contra el mismo origen
+            // público en lugar de intentar `http://localhost:8000/storage/...`.
+            'url' => '/storage',
             'visibility' => 'public',
             'throw' => false,
             'report' => false,
@@ -74,7 +98,7 @@ return [
     */
 
     'links' => [
-        public_path('storage') => storage_path('app/public'),
+        public_path('storage') => $fotosRoot,
     ],
 
 ];

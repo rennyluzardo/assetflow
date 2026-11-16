@@ -105,14 +105,57 @@ it('rechaza agregar un equipo cuyo origen no coincide con el del lote', function
         ->assertJsonValidationErrors('placa_id');
 });
 
-it('rechaza agregar un equipo cuyo origen es idéntico al destino', function () {
+it('rechaza agregar un equipo que ya se encuentra en la ubicación de destino', function () {
     $traslado = ($this->crearTraslado)('Almacén', 'ALMACEN');
 
     ($this->inventario)('AF-IGUAL', 'Almacén', 'ALMACEN');
 
     $this->postJson("/api/traslados/{$traslado['id']}/equipos", ['placa_id' => 'AF-IGUAL'])
         ->assertStatus(422)
-        ->assertJsonValidationErrors('placa_id');
+        ->assertJsonValidationErrors('placa_id')
+        ->assertJsonPath('errors.placa_id.0', 'El equipo ya se encuentra en la ubicación de destino (ALMACEN).');
+
+    $this->assertDatabaseMissing('traslado_equipos', [
+        'traslado_id' => $traslado['id'],
+        'placa_id' => 'AF-IGUAL',
+    ]);
+
+    // El lote no se bautiza con un origen inválido.
+    $this->assertDatabaseHas('traslados', [
+        'id' => $traslado['id'],
+        'zona_origen' => null,
+        'ubicacion_origen' => null,
+    ]);
+});
+
+it('rechaza el equipo por su ubicación aunque la zona de origen difiera de la del destino', function () {
+    $traslado = ($this->crearTraslado)('BOGOTA', 'SALA_DE_GARANTIA');
+
+    ($this->inventario)('AF-DESTINO-ZONA', 'MEDELLIN', 'SALA_DE_GARANTIA');
+
+    $this->postJson("/api/traslados/{$traslado['id']}/equipos", ['placa_id' => 'AF-DESTINO-ZONA'])
+        ->assertStatus(422)
+        ->assertJsonValidationErrors('placa_id')
+        ->assertJsonPath('errors.placa_id.0', 'El equipo ya se encuentra en la ubicación de destino (SALA_DE_GARANTIA).');
+});
+
+it('rechaza un equipo que ya está en el destino aunque el lote tenga origen bautizado', function () {
+    $traslado = ($this->crearTraslado)('BOGOTA', 'SALA_DE_GARANTIA');
+
+    ($this->inventario)('AF-ORIGEN-OK', 'Almacén', 'ALMACEN');
+    ($this->inventario)('AF-YA-EN-DESTINO', 'Bogotá', 'SALA_DE_GARANTIA');
+
+    $this->postJson("/api/traslados/{$traslado['id']}/equipos", ['placa_id' => 'AF-ORIGEN-OK'])->assertCreated();
+
+    $this->postJson("/api/traslados/{$traslado['id']}/equipos", ['placa_id' => 'AF-YA-EN-DESTINO'])
+        ->assertStatus(422)
+        ->assertJsonValidationErrors('placa_id')
+        ->assertJsonPath('errors.placa_id.0', 'El equipo ya se encuentra en la ubicación de destino (SALA_DE_GARANTIA).');
+
+    $this->assertDatabaseMissing('traslado_equipos', [
+        'traslado_id' => $traslado['id'],
+        'placa_id' => 'AF-YA-EN-DESTINO',
+    ]);
 });
 
 it('rechaza un equipo que ya viaja en otro traslado activo', function () {
@@ -251,6 +294,35 @@ it('importa el reporte Cubit, normaliza la ubicación y bautiza el origen', func
 
     // Equipos sin traslado RECIBIDO no aparecen en /inventario.
     $this->getJson('/api/inventario?search=B25702')->assertOk()->assertJsonPath('meta.total', 0);
+});
+
+it('omite en la importación Cubit los equipos que ya están en el destino', function () {
+    $traslado = ($this->crearTraslado)('BOGOTA', 'SALA_DE_GARANTIA');
+
+    $archivo = ($this->xlsxCubit)([
+        ['Reporte de Traslado de Elementos'],
+        [],
+        [],
+        ['Identificador 1', 'Identificador 2', 'Ref. Principal', 'Descripción', 'Zona Actual', 'Ubicación Actual'],
+        ['B257100', 'PWTEST01', 'PORTATIL LENOVO L14', 'PORTATIL', 'BOGOTA', '30052001965-ALMACEN'],
+        ['B257101', 'PWTEST02', 'PORTATIL LENOVO L14', 'PORTATIL', 'BOGOTA', '30052001965-SALA_DE_GARANTIA'],
+    ]);
+
+    $this->postJson("/api/traslados/{$traslado['id']}/equipos/importar", ['archivo' => $archivo])
+        ->assertOk()
+        ->assertJsonPath('data.agregados', 1)
+        ->assertJsonPath('data.errores.0.placa', 'B257101')
+        ->assertJsonPath('data.errores.0.error', 'El equipo ya se encuentra en la ubicación de destino (SALA_DE_GARANTIA).');
+
+    $this->assertDatabaseHas('traslado_equipos', [
+        'traslado_id' => $traslado['id'],
+        'placa_id' => 'B257100',
+    ]);
+
+    $this->assertDatabaseMissing('traslado_equipos', [
+        'traslado_id' => $traslado['id'],
+        'placa_id' => 'B257101',
+    ]);
 });
 
 it('bloquea el cierre de recepción mientras falten equipos por verificar', function () {

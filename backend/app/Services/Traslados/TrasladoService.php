@@ -26,8 +26,8 @@ use Maatwebsite\Excel\Facades\Excel;
  * Reglas de negocio:
  * - El código es autogenerado y consecutivo; el origen nace NULL y se "bautiza"
  *   con la ubicación actual del primer equipo escaneado.
- * - Todos los equipos de un lote deben provenir del mismo origen y este debe
- *   diferir del destino.
+ * - Todos los equipos de un lote deben provenir del mismo origen y ninguno
+ *   puede estar ya en la ubicación de destino (validación "origen ≠ destino").
  * - La recepción exige el 100% de equipos verificados (k = N), la realiza un
  *   usuario distinto del creador y del despachador, y mueve todo el lote al
  *   destino sellando su `num_traslado`.
@@ -175,7 +175,8 @@ final class TrasladoService
 
     /**
      * Agrega un activo al lote ABIERTO. El primer equipo "bautiza" el origen;
-     * los siguientes deben coincidir con ese origen y el destino debe diferir.
+     * los siguientes deben coincidir con ese origen. En todos los casos el
+     * activo debe estar en una ubicación distinta a la del destino.
      */
     public function agregarEquipo(Traslado $traslado, string $placaId): TrasladoEquipo
     {
@@ -201,6 +202,12 @@ final class TrasladoService
             ]);
         }
 
+        if ($inventario->ubicacion_actual === $traslado->ubicacion_destino) {
+            throw ValidationException::withMessages([
+                'placa_id' => "El equipo ya se encuentra en la ubicación de destino ({$traslado->ubicacion_destino}).",
+            ]);
+        }
+
         $zonaOrigen = $inventario->zona_actual;
         $ubicacionOrigen = $inventario->ubicacion_actual;
 
@@ -212,13 +219,6 @@ final class TrasladoService
         } elseif ($traslado->zona_origen !== $zonaOrigen || $traslado->ubicacion_origen !== $ubicacionOrigen) {
             throw ValidationException::withMessages([
                 'placa_id' => "El activo {$placaId} proviene de {$zonaOrigen} / {$ubicacionOrigen}, distinto al origen del lote ({$traslado->zona_origen} / {$traslado->ubicacion_origen}).",
-            ]);
-        }
-
-        if ($traslado->zona_origen === $traslado->zona_destino
-            && $traslado->ubicacion_origen === $traslado->ubicacion_destino) {
-            throw ValidationException::withMessages([
-                'placa_id' => 'El origen y el destino del traslado son idénticos.',
             ]);
         }
 

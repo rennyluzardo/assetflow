@@ -162,6 +162,20 @@ it('expone la evidencia fotográfica del portátil cuando existe', function () {
     expect($portatil['fotos'][0])->toStartWith('/storage/portatiles/');
 });
 
+it('sirve las evidencias fotográficas desde el disco público', function () {
+    Storage::disk('public')->put('equipos/test.jpg', 'contenido-imagen');
+
+    $this->get('/storage/equipos/test.jpg')
+        ->assertOk()
+        ->assertHeader('Cache-Control', 'max-age=86400, public')
+        ->assertStreamedContent('contenido-imagen');
+
+    $this->get('/storage/equipos/no-existe.jpg')->assertNotFound();
+
+    // La ruta nunca debe escapar de la raíz del disco.
+    $this->get('/storage/..%2F.env')->assertNotFound();
+});
+
 it('expone las observaciones técnicas exactas de un diagnóstico de portátil', function () {
     InventarioGeneral::factory()->create([
         'placa_id' => 'AF-TRZ-LAP-NOV',
