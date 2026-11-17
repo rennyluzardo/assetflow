@@ -4,12 +4,15 @@ import { ESTADO_LABELS } from '@/constants/equipos'
 import type { EstadoEquipo } from '@/constants/equipos'
 import { cn } from '@/lib/cn'
 import { descargarBitacoraXlsx, useDashboard } from './api'
+import { DashboardCard } from './components/DashboardCard'
 import { DistribucionEstadosChart } from './components/DistribucionEstadosChart'
+import { IngresosMensualesChart } from './components/IngresosMensualesChart'
+import { ProductividadAnalistaChart } from './components/ProductividadAnalistaChart'
+import { ProductividadEstacionChart } from './components/ProductividadEstacionChart'
 import type {
   DashboardParams,
   ModuloDashboard,
   PeriodoDashboard,
-  ProductividadAnalista as ProductividadAnalistaRow,
   SlaResumen,
   TipoEquipoDashboard,
 } from './types'
@@ -59,13 +62,13 @@ function KpiCard({
   }[tono]
 
   return (
-    <div className="rounded-lg border border-line bg-surface p-5">
+    <DashboardCard className="p-5">
       <p className="text-xs font-medium uppercase tracking-wide text-slate-400">{titulo}</p>
       <p className={cn('mt-2 font-mono text-3xl font-semibold tabular-nums', valorTono)}>
         {valor}
       </p>
       {sub && <p className="mt-1 text-xs text-slate-500">{sub}</p>}
-    </div>
+    </DashboardCard>
   )
 }
 
@@ -92,49 +95,6 @@ function SlaMini({ sla }: { sla: SlaResumen }) {
     <span className="font-mono text-[11px] text-slate-400">
       SLA {sla.dentro}/{sla.total}
     </span>
-  )
-}
-
-function ProductividadAnalista({
-  analistas,
-}: {
-  analistas: ReadonlyArray<ProductividadAnalistaRow>
-}) {
-  if (analistas.length === 0) {
-    return <p className="text-sm text-slate-400">Sin productividad registrada en el periodo.</p>
-  }
-
-  return (
-    <ul className="space-y-4">
-      {analistas.map((a) => {
-        const pct = Math.min(100, Math.max(0, a.porcentaje))
-        return (
-          <li key={a.analista_id}>
-            <div className="mb-1.5 flex flex-wrap items-center justify-between gap-2 text-sm">
-              <span className="flex items-center gap-2">
-                <span className="font-medium text-slate-700">{a.nombre}</span>
-                <BonoBadge bono={a.bono} />
-              </span>
-              <span className="flex items-center gap-3">
-                <SlaMini sla={a.sla} />
-                <span className="font-mono text-xs text-slate-500">
-                  {a.total} / {a.meta} · {a.porcentaje}%
-                </span>
-              </span>
-            </div>
-            <div className="h-2 w-full overflow-hidden rounded-full bg-muted">
-              <div
-                className={cn(
-                  'h-full rounded-full transition-all',
-                  a.bono > 0 ? 'bg-estado-verde-line' : pct >= 100 ? 'bg-slate-500' : 'bg-slate-400',
-                )}
-                style={{ width: `${pct}%` }}
-              />
-            </div>
-          </li>
-        )
-      })}
-    </ul>
   )
 }
 
@@ -202,7 +162,7 @@ export function DashboardScreen() {
       )}
 
       <div className="sticky top-16 z-40 -mx-6 bg-slate-50/95 px-6 py-3 backdrop-blur-sm">
-        <section className="mx-auto flex w-full max-w-7xl flex-wrap items-center gap-3 rounded-lg border border-line bg-surface p-3">
+        <section className="mx-auto flex w-full max-w-7xl flex-wrap items-center gap-3 rounded-xl border border-slate-200 bg-surface p-3 shadow-sm">
         <div className="flex rounded-md border border-line p-0.5">
           {PERIODOS.map((p) => (
             <button
@@ -323,7 +283,11 @@ export function DashboardScreen() {
             />
           </section>
 
-          <section className="mx-auto w-full max-w-7xl rounded-lg border border-line bg-surface p-5">
+          <section className="mx-auto w-full max-w-7xl">
+            <IngresosMensualesChart />
+          </section>
+
+          <DashboardCard className="mx-auto w-full max-w-7xl p-5">
             <div className="flex flex-wrap items-center justify-between gap-4">
               <div>
                 <h2 className="text-sm font-semibold text-slate-700">Meta y bonos del periodo</h2>
@@ -350,7 +314,7 @@ export function DashboardScreen() {
               Escalera de bonos: ≥83% → 5% · ≥85% → 10% · ≥87% → 15% (SLA máx.{' '}
               {data.sla_dias} días).
             </p>
-          </section>
+          </DashboardCard>
 
           <section className="mx-auto grid w-full max-w-7xl grid-cols-1 gap-6 lg:grid-cols-2">
             <DistribucionEstadosChart
@@ -360,33 +324,14 @@ export function DashboardScreen() {
               }))}
             />
 
-            <div className="rounded-lg border border-line bg-surface p-5">
-              <h2 className="mb-4 text-sm font-semibold text-slate-700">
-                Productividad por estación
-              </h2>
-              {data.productividad.por_estacion.length === 0 ? (
-                <p className="text-sm text-slate-400">Sin intervenciones en el periodo.</p>
-              ) : (
-                <ul className="space-y-3">
-                  {data.productividad.por_estacion.map((e) => (
-                    <li key={e.estacion} className="flex items-center justify-between text-sm">
-                      <span className="text-slate-600">{e.label}</span>
-                      <span className="font-mono text-slate-900">{e.total}</span>
-                    </li>
-                  ))}
-                </ul>
-              )}
-            </div>
+            <ProductividadEstacionChart estaciones={data.productividad.por_estacion} />
           </section>
 
-          <section className="mx-auto w-full max-w-7xl rounded-lg border border-line bg-surface p-5">
-            <h2 className="mb-4 text-sm font-semibold text-slate-700">
-              Productividad por analista{' '}
-              <span className="font-normal text-slate-400">
-                (meta: {data.meta_diaria}/día)
-              </span>
-            </h2>
-            <ProductividadAnalista analistas={data.productividad.por_analista} />
+          <section className="mx-auto w-full max-w-7xl">
+            <ProductividadAnalistaChart
+              analistas={data.productividad.por_analista}
+              metaDiaria={data.meta_diaria}
+            />
           </section>
         </>
       )}

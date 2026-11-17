@@ -1,4 +1,5 @@
 import { Cell, Pie, PieChart, ResponsiveContainer, Tooltip } from 'recharts'
+import { DashboardCard } from './DashboardCard'
 
 export interface EstadoData {
   name: string
@@ -55,17 +56,17 @@ export function DistribucionEstadosChart({ data }: Props) {
 
   if (chartData.length === 0) {
     return (
-      <div className="flex flex-col rounded-lg border border-line bg-surface p-5">
+      <DashboardCard className="flex flex-col p-5">
         <h2 className="text-sm font-semibold text-slate-700">Distribución por estado</h2>
         <p className="mt-4 text-sm text-slate-400">
           Sin estados registrados en el periodo seleccionado.
         </p>
-      </div>
+      </DashboardCard>
     )
   }
 
   return (
-    <div className="flex flex-col rounded-lg border border-line bg-surface p-5">
+    <DashboardCard className="flex flex-col p-5">
       <div className="flex items-baseline justify-between gap-3">
         <h2 className="text-sm font-semibold text-slate-700">Distribución por estado</h2>
         <span className="font-mono text-xs text-slate-400">{total} equipos</span>
@@ -100,7 +101,7 @@ export function DistribucionEstadosChart({ data }: Props) {
                 const item = payload[0]?.payload as EstadoData | undefined
                 if (!item) return null
                 return (
-                  <div className="rounded-lg border border-line bg-white/95 p-3 shadow-lg backdrop-blur-sm">
+                  <div className="rounded-xl border border-slate-200 bg-white/95 p-3 shadow-lg backdrop-blur-sm">
                     <div className="mb-1 flex items-center gap-2">
                       <span
                         className="h-3 w-3 rounded-full"
@@ -141,6 +142,6 @@ export function DistribucionEstadosChart({ data }: Props) {
           </li>
         ))}
       </ul>
-    </div>
+    </DashboardCard>
   )
 }

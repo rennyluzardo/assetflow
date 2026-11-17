@@ -58,8 +58,8 @@ export function AppLayout({ children }: { children: ReactNode }) {
   const rol = session?.roles[0] ?? 'analista'
 
   return (
-    <div className="flex min-h-screen bg-canvas text-slate-900">
-      <aside className="sticky top-0 flex h-screen w-60 shrink-0 flex-col overflow-y-auto border-r border-line bg-surface">
+    <div className="relative min-h-screen w-full bg-canvas text-slate-900">
+      <aside className="fixed inset-y-0 left-0 z-50 flex w-[250px] flex-col border-r border-line bg-surface">
         <div className="flex h-16 items-center border-b border-line px-6">
           <span className="text-lg font-semibold tracking-tight">AssetFlow</span>
         </div>
@@ -112,7 +112,7 @@ export function AppLayout({ children }: { children: ReactNode }) {
         </footer>
       </aside>
 
-      <main className="min-w-0 flex-1">{children}</main>
+      <main className="min-h-screen w-full bg-canvas pl-[250px]">{children}</main>
     </div>
   )
 }
