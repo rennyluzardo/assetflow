@@ -65,11 +65,11 @@ export function TrasladoDrawer({ trasladoId, onCerrar }: TrasladoDrawerProps) {
   return (
     <Drawer titulo="Detalle de traslado" onCerrar={onCerrar}>
       {detalle.isLoading ? (
-        <p className="text-sm text-slate-400">Cargando traslado…</p>
+        <p className="py-4 text-sm text-slate-400">Cargando traslado…</p>
       ) : detalle.isError || !traslado ? (
-        <p className="text-sm text-estado-terracota-ink">No se pudo cargar el traslado.</p>
+        <p className="py-4 text-sm text-estado-terracota-ink">No se pudo cargar el traslado.</p>
       ) : (
-        <div className="space-y-5">
+        <div className="space-y-5 py-4">
           <Cabecera traslado={traslado} />
 
           {traslado.estado === 'ABIERTO' && (

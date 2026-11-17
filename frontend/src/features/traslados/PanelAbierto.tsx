@@ -1,4 +1,5 @@
 import { useRef, useState } from 'react'
+import { DrawerFooter } from '@/components/Drawer'
 import { ScannerInput } from '@/components/ScannerInput'
 import type { ScannerStatus } from '@/components/ScannerInput'
 import { useAgregarEquipo, useDespachar, useImportarEquipos, useQuitarEquipo } from './api'
@@ -56,16 +57,20 @@ export function PanelAbierto({ trasladoId, equipos }: PanelAbiertoProps) {
 
   return (
     <div className="space-y-4">
-      <ScannerInput
-        value={placa}
-        onChange={setPlaca}
-        onSubmit={escanear}
-        status={status}
-        message={message}
-        label="Escaneo de equipos"
-        placeholder="Escanea la placa y presiona Enter"
-        disabled={agregar.isPending}
-      />
+      {/* Cinta sticky exclusiva del escáner: `-mx-5 px-5` la extiende hasta los
+          bordes del Drawer (cuyo body usa `px-5`) para tapar la lista al pasar. */}
+      <div className="sticky top-0 z-20 -mx-5 bg-white px-5 pb-3 pt-2">
+        <ScannerInput
+          value={placa}
+          onChange={setPlaca}
+          onSubmit={escanear}
+          status={status}
+          message={message}
+          label="Escaneo de equipos"
+          placeholder="Escanea la placa y presiona Enter"
+          disabled={agregar.isPending}
+        />
+      </div>
 
       <div>
         <input
@@ -97,18 +102,19 @@ export function PanelAbierto({ trasladoId, equipos }: PanelAbiertoProps) {
         />
       </div>
 
-      <button
-        type="button"
-        onClick={() => despachar.mutate()}
-        disabled={despachar.isPending || equipos.length === 0}
-        className="w-full rounded-md bg-slate-900 px-4 py-2.5 text-sm font-medium text-white transition-colors hover:bg-slate-800 disabled:cursor-not-allowed disabled:opacity-40"
-      >
-        {despachar.isPending ? 'Despachando…' : 'Despachar traslado'}
-      </button>
-
-      {despachar.isError && (
-        <p className="text-sm text-estado-terracota-ink">{mensajeError(despachar.error)}</p>
-      )}
+      <DrawerFooter>
+        <button
+          type="button"
+          onClick={() => despachar.mutate()}
+          disabled={despachar.isPending || equipos.length === 0}
+          className="w-full rounded-md bg-slate-900 px-4 py-2.5 text-sm font-medium text-white transition-colors hover:bg-slate-800 disabled:cursor-not-allowed disabled:opacity-40"
+        >
+          {despachar.isPending ? 'Despachando…' : 'Despachar traslado'}
+        </button>
+        {despachar.isError && (
+          <p className="mt-2 text-sm text-estado-terracota-ink">{mensajeError(despachar.error)}</p>
+        )}
+      </DrawerFooter>
     </div>
   )
 }
