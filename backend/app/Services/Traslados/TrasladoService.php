@@ -12,6 +12,7 @@ use App\Models\User;
 use Illuminate\Auth\Access\AuthorizationException;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Str;
 use Illuminate\Validation\ValidationException;
 use Maatwebsite\Excel\Facades\Excel;
 
@@ -202,9 +203,12 @@ final class TrasladoService
             ]);
         }
 
-        if ($inventario->ubicacion_actual === $traslado->ubicacion_destino) {
+        $ubicacionActual = $this->normalizarTextoUbicacion($inventario->ubicacion_actual);
+        $ubicacionDestino = $this->normalizarTextoUbicacion($traslado->ubicacion_destino);
+
+        if ($ubicacionActual === $ubicacionDestino) {
             throw ValidationException::withMessages([
-                'placa_id' => "El equipo ya se encuentra en la ubicación de destino ({$traslado->ubicacion_destino}).",
+                'equipo' => "Operación denegada (TC-05): El equipo con placa {$inventario->placa_id} ya se encuentra físicamente en el destino seleccionado ({$ubicacionDestino}).",
             ]);
         }
 
@@ -250,18 +254,20 @@ final class TrasladoService
 
         $hoja = $this->leerHoja($archivo);
         $indiceCabecera = $this->indiceCabeceraCubit($hoja);
-        $placas = [];
+        $esCubit = $indiceCabecera !== null;
+        $filas = [];
+        $vistas = [];
 
-        if ($indiceCabecera !== null) {
+        if ($esCubit) {
             foreach (array_slice($hoja, $indiceCabecera + 1) as $fila) {
                 $placa = trim((string) ($fila[0] ?? ''));
 
-                if ($placa === '') {
+                if ($placa === '' || isset($vistas[$placa])) {
                     continue;
                 }
 
-                $this->upsertActivoCubit($fila, $usuario->id);
-                $placas[] = $placa;
+                $vistas[$placa] = true;
+                $filas[] = $fila;
             }
         } else {
             foreach ($hoja as $fila) {
@@ -269,25 +275,36 @@ final class TrasladoService
 
                 if ($placa === '' || in_array(mb_strtolower($placa, 'UTF-8'), [
                     'placa', 'placa_id', 'placaid', 'identificador 1',
-                ], true)) {
+                ], true) || isset($vistas[$placa])) {
                     continue;
                 }
 
-                $placas[] = $placa;
+                $vistas[$placa] = true;
+                $filas[] = [$placa];
             }
         }
 
         $agregados = 0;
         $errores = [];
 
-        foreach (array_values(array_unique($placas)) as $placa) {
+        foreach ($filas as $fila) {
+            $placa = trim((string) ($fila[0] ?? ''));
+
             try {
-                $this->agregarEquipo($traslado, $placa);
+                DB::transaction(function () use ($traslado, $fila, $usuario, $placa, $esCubit): void {
+                    // El reporte Cubit hace upsert de identidad antes de asociar;
+                    // la lista simple de placas ya presupone que el activo existe.
+                    if ($esCubit) {
+                        $this->upsertActivoCubit($fila, $usuario->id);
+                    }
+
+                    $this->agregarEquipo($traslado, $placa);
+                });
                 $agregados++;
             } catch (ValidationException $e) {
                 $errores[] = [
                     'placa' => $placa,
-                    'error' => implode(' ', $e->errors()['placa_id'] ?? [$e->getMessage()]),
+                    'error' => implode(' ', $e->errors()['equipo'] ?? $e->errors()['placa_id'] ?? [$e->getMessage()]),
                 ];
             }
         }
@@ -529,6 +546,23 @@ final class TrasladoService
     }
 
     /**
+     * Normalización canónica de ubicaciones/zonas para comparación (TC-05).
+     *
+     * En BD conviven slugs ("SALA_DE_GARANTIA") y nombres legibles con espacios
+     * y tildes ("Sala de Garantía"). Este helper colapsa ambas formas a una sola
+     * representación: ASCII sin tildes, guiones bajos y espacios múltiples
+     * reducidos a un único espacio, sin espacios en los extremos y en mayúsculas.
+     *
+     * "SALA_DE_GARANTIA", "Sala de Garantía" y "sala de garantia" -> "SALA DE GARANTIA".
+     */
+    private function normalizarTextoUbicacion(?string $valor): string
+    {
+        $ascii = Str::ascii($valor ?? '');
+
+        return mb_strtoupper(trim((string) preg_replace('/[\s_]+/', ' ', $ascii)), 'UTF-8');
+    }
+
+    /**
      * Upsert silencioso de una fila Cubit en `inventario_general`: crea el
      * activo (con `num_traslado = null` si es nuevo) o actualiza su identidad y
      * ubicación sin tocar su historial de traslados.
@@ -547,12 +581,14 @@ final class TrasladoService
         $existente = InventarioGeneral::where('placa_id', $placa)->first();
 
         if ($existente !== null) {
+            // TC-05: no sobrescribir `zona_actual`/`ubicacion_actual` de un
+            // activo ya existente en inventario. Su ubicación real es la que ya
+            // tiene en BD (la recepción de un traslado previo puede haberlo
+            // movido); el Excel solo aporta identidad (serial/referencia/descripción).
             $existente->update([
                 'serial' => $serial !== '' ? $serial : $existente->serial,
                 'referencia' => $referencia !== '' ? $referencia : $existente->referencia,
                 'descripcion' => $descripcion !== '' ? $descripcion : $existente->descripcion,
-                'zona_actual' => $zona !== '' ? $zona : $existente->zona_actual,
-                'ubicacion_actual' => $ubicacion !== '' ? $ubicacion : $existente->ubicacion_actual,
             ]);
 
             return;

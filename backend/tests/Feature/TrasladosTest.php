@@ -112,8 +112,8 @@ it('rechaza agregar un equipo que ya se encuentra en la ubicación de destino', 
 
     $this->postJson("/api/traslados/{$traslado['id']}/equipos", ['placa_id' => 'AF-IGUAL'])
         ->assertStatus(422)
-        ->assertJsonValidationErrors('placa_id')
-        ->assertJsonPath('errors.placa_id.0', 'El equipo ya se encuentra en la ubicación de destino (ALMACEN).');
+        ->assertJsonValidationErrors('equipo')
+        ->assertJsonPath('errors.equipo.0', 'Operación denegada (TC-05): El equipo con placa AF-IGUAL ya se encuentra físicamente en el destino seleccionado (ALMACEN).');
 
     $this->assertDatabaseMissing('traslado_equipos', [
         'traslado_id' => $traslado['id'],
@@ -135,8 +135,8 @@ it('rechaza el equipo por su ubicación aunque la zona de origen difiera de la d
 
     $this->postJson("/api/traslados/{$traslado['id']}/equipos", ['placa_id' => 'AF-DESTINO-ZONA'])
         ->assertStatus(422)
-        ->assertJsonValidationErrors('placa_id')
-        ->assertJsonPath('errors.placa_id.0', 'El equipo ya se encuentra en la ubicación de destino (SALA_DE_GARANTIA).');
+        ->assertJsonValidationErrors('equipo')
+        ->assertJsonPath('errors.equipo.0', 'Operación denegada (TC-05): El equipo con placa AF-DESTINO-ZONA ya se encuentra físicamente en el destino seleccionado (SALA DE GARANTIA).');
 });
 
 it('rechaza un equipo que ya está en el destino aunque el lote tenga origen bautizado', function () {
@@ -149,13 +149,102 @@ it('rechaza un equipo que ya está en el destino aunque el lote tenga origen bau
 
     $this->postJson("/api/traslados/{$traslado['id']}/equipos", ['placa_id' => 'AF-YA-EN-DESTINO'])
         ->assertStatus(422)
-        ->assertJsonValidationErrors('placa_id')
-        ->assertJsonPath('errors.placa_id.0', 'El equipo ya se encuentra en la ubicación de destino (SALA_DE_GARANTIA).');
+        ->assertJsonValidationErrors('equipo')
+        ->assertJsonPath('errors.equipo.0', 'Operación denegada (TC-05): El equipo con placa AF-YA-EN-DESTINO ya se encuentra físicamente en el destino seleccionado (SALA DE GARANTIA).');
 
     $this->assertDatabaseMissing('traslado_equipos', [
         'traslado_id' => $traslado['id'],
         'placa_id' => 'AF-YA-EN-DESTINO',
     ]);
+});
+
+it('rechaza el destino ignorando espacios y capitalización (TC-05)', function (string $ubicacionActual, string $ubicacionDestino, string $destinoCanonico) {
+    $traslado = ($this->crearTraslado)('BOGOTA', $ubicacionDestino);
+    ($this->inventario)('AF-TC05', 'Almacén', $ubicacionActual);
+
+    $this->postJson("/api/traslados/{$traslado['id']}/equipos", ['placa_id' => 'AF-TC05'])
+        ->assertStatus(422)
+        ->assertJsonValidationErrors('equipo')
+        ->assertJsonPath('errors.equipo.0', "Operación denegada (TC-05): El equipo con placa AF-TC05 ya se encuentra físicamente en el destino seleccionado ({$destinoCanonico}).");
+
+    $this->assertDatabaseMissing('traslado_equipos', [
+        'traslado_id' => $traslado['id'],
+        'placa_id' => 'AF-TC05',
+    ]);
+})->with([
+    ['  almacen ', 'ALMACEN', 'ALMACEN'],
+    ['Sala_De_Garantia', 'SALA_DE_GARANTIA', 'SALA DE GARANTIA'],
+    ['sala de garantía   ', '  Sala de Garantía  ', 'SALA DE GARANTIA'],
+]);
+
+it('regresión TC-05: no permite re-trasladar al mismo destino equipos ya recibidos', function () {
+    $placas = ['B257024', 'B148234', 'B270649', 'BT13699', 'B241334'];
+
+    // Traslado 1 hacia "Sala de Garantía" (nombre legible con espacios y tilde).
+    $traslado1 = ($this->crearTraslado)('BOGOTA', 'Sala de Garantía');
+
+    foreach ($placas as $placa) {
+        ($this->inventario)($placa, 'Almacén', 'ALMACEN');
+        $this->postJson("/api/traslados/{$traslado1['id']}/equipos", ['placa_id' => $placa])->assertCreated();
+    }
+
+    $this->postJson("/api/traslados/{$traslado1['id']}/despachar")->assertOk();
+
+    Sanctum::actingAs($this->receptor);
+    foreach ($placas as $placa) {
+        $this->postJson("/api/traslados/{$traslado1['id']}/equipos/verificar", ['placa_id' => $placa])->assertOk();
+    }
+    $this->postJson("/api/traslados/{$traslado1['id']}/recibir")->assertOk();
+
+    // La recepción dejó los activos físicamente en el destino (nombre legible).
+    $this->assertDatabaseHas('inventario_general', [
+        'placa_id' => 'B257024',
+        'zona_actual' => 'BOGOTA',
+        'ubicacion_actual' => 'Sala de Garantía',
+    ]);
+
+    // Traslado 2 hacia el mismo destino, ahora escrito como slug.
+    Sanctum::actingAs($this->creador);
+    $traslado2 = ($this->crearTraslado)('BOGOTA', 'SALA_DE_GARANTIA');
+
+    // 1) Escáner individual: los 5 deben ser rechazados con 422.
+    foreach ($placas as $placa) {
+        $this->postJson("/api/traslados/{$traslado2['id']}/equipos", ['placa_id' => $placa])
+            ->assertStatus(422)
+            ->assertJsonValidationErrors('equipo')
+            ->assertJsonPath('errors.equipo.0', "Operación denegada (TC-05): El equipo con placa {$placa} ya se encuentra físicamente en el destino seleccionado (SALA DE GARANTIA).");
+    }
+
+    // Solo persisten las 5 filas del traslado 1.
+    $this->assertDatabaseCount('traslado_equipos', 5);
+
+    // 2) Reimportación del Excel Cubit: los 5 deben ser rechazados sin
+    //    sobrescribir su ubicación real (que ya es la del destino).
+    $archivo = ($this->xlsxCubit)(array_merge(
+        [
+            ['Reporte de Traslado de Elementos'],
+            [],
+            [],
+            ['Identificador 1', 'Identificador 2', 'Ref. Principal', 'Descripción', 'Zona Actual', 'Ubicación Actual'],
+        ],
+        array_map(
+            fn (string $placa) => [$placa, "SN-{$placa}", 'PORTATIL LENOVO L14', 'PORTATIL', 'BOGOTA', '30052001965-ALMACEN'],
+            $placas,
+        ),
+    ));
+
+    $this->postJson("/api/traslados/{$traslado2['id']}/equipos/importar", ['archivo' => $archivo])
+        ->assertOk()
+        ->assertJsonPath('data.agregados', 0)
+        ->assertJsonCount(5, 'data.errores');
+
+    // La reimportación NO movió los activos: siguen donde los dejó la recepción.
+    $this->assertDatabaseHas('inventario_general', [
+        'placa_id' => 'B257024',
+        'ubicacion_actual' => 'Sala de Garantía',
+    ]);
+
+    $this->assertDatabaseCount('traslado_equipos', 5);
 });
 
 it('rechaza un equipo que ya viaja en otro traslado activo', function () {
@@ -312,7 +401,7 @@ it('omite en la importación Cubit los equipos que ya están en el destino', fun
         ->assertOk()
         ->assertJsonPath('data.agregados', 1)
         ->assertJsonPath('data.errores.0.placa', 'B257101')
-        ->assertJsonPath('data.errores.0.error', 'El equipo ya se encuentra en la ubicación de destino (SALA_DE_GARANTIA).');
+        ->assertJsonPath('data.errores.0.error', 'Operación denegada (TC-05): El equipo con placa B257101 ya se encuentra físicamente en el destino seleccionado (SALA DE GARANTIA).');
 
     $this->assertDatabaseHas('traslado_equipos', [
         'traslado_id' => $traslado['id'],
