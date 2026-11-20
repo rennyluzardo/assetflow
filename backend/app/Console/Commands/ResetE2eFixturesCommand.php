@@ -9,7 +9,9 @@ use App\Models\InventarioGeneral;
 use App\Models\SopladoRegistro;
 use App\Models\Traslado;
 use App\Models\User;
+use App\Support\HistoriaTrazabilidadE2eFixture;
 use App\Support\InventarioE2eFixtures;
+use Database\Seeders\ZonaUbicacionSeeder;
 use Illuminate\Console\Command;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
@@ -48,12 +50,27 @@ class ResetE2eFixturesCommand extends Command
             Equipo::withTrashed()->whereIn('placa_id', $placas)->forceDelete();
             GarantiaPortatil::withTrashed()->whereIn('placa_id', $placas)->forceDelete();
 
+            $this->sembrarZonasBase();
             $this->restaurarInventario($placas);
+            HistoriaTrazabilidadE2eFixture::asegurar();
         });
 
         $this->info('Fixtures E2E restablecidos: '.implode(', ', $placas).'.');
 
         return self::SUCCESS;
+    }
+
+    /**
+     * Restaura el maestro base de zonas/ubicaciones que alimenta los selectores
+     * de destino de `/traslados`. Ya no se siembra con `migrate:fresh --seed`,
+     * así que el E2E lo garantiza aquí (el seeder es idempotente).
+     */
+    private function sembrarZonasBase(): void
+    {
+        $this->callSilent('db:seed', [
+            '--class' => ZonaUbicacionSeeder::class,
+            '--force' => true,
+        ]);
     }
 
     /**

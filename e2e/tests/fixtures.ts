@@ -4,7 +4,7 @@ import { fileURLToPath } from 'node:url'
 /** PNG válido de 1×1 para el adjunto de evidencia del módulo /soplado. */
 export const EVIDENCIA_PNG = fileURLToPath(new URL('../fixtures/evidencia.png', import.meta.url))
 
-/** Placas de prueba sembradas por `InventarioMockSeeder`. */
+/** Placas de prueba restablecidas por `e2e:reset-fixtures` antes de cada corrida. */
 export const PLACAS = {
   /** Pendiente (sin intervención): punto de partida del flujo CPU. */
   cpuPendiente: 'AF-100001',

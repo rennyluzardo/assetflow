@@ -119,7 +119,8 @@ it('recrea las placas reservadas que no existían', function () {
     // Sin sembrar ninguna placa reservada, el comando debe recrearlas todas.
     $this->artisan('e2e:reset-fixtures')->assertSuccessful();
 
-    $this->assertDatabaseCount('inventario_general', 25);
+    // 25 placas reservadas + la hoja de vida AF-100016 del flujo de trazabilidad.
+    $this->assertDatabaseCount('inventario_general', 26);
 
     foreach (InventarioE2eFixtures::placas() as $placa) {
         $this->assertDatabaseHas('inventario_general', [
@@ -130,6 +131,15 @@ it('recrea las placas reservadas que no existían', function () {
             'modulo_intervencion' => null,
         ]);
     }
+
+    // La hoja de vida de trazabilidad queda completa (CPU cerrada vía soplado).
+    $this->assertDatabaseHas('inventario_general', [
+        'placa_id' => 'AF-100016',
+        'estado_actual' => 'COMPLETADO',
+        'intervenido' => true,
+    ]);
+    $this->assertDatabaseHas('equipos', ['placa_id' => 'AF-100016']);
+    $this->assertDatabaseCount('soplado_registros', 1);
 });
 
 it('es idempotente al ejecutarse dos veces seguidas', function () {
@@ -145,7 +155,7 @@ it('es idempotente al ejecutarse dos veces seguidas', function () {
     $this->artisan('e2e:reset-fixtures')->assertSuccessful();
     $this->artisan('e2e:reset-fixtures')->assertSuccessful();
 
-    $this->assertDatabaseCount('inventario_general', 25);
+    $this->assertDatabaseCount('inventario_general', 26);
     $this->assertDatabaseHas('inventario_general', [
         'placa_id' => 'AF-100001',
         'estado_actual' => null,

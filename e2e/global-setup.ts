@@ -2,9 +2,11 @@ import { execSync } from 'node:child_process'
 import { fileURLToPath } from 'node:url'
 
 /**
- * Devuelve las placas reservadas de la suite (CPUs AF-100001..AF-100015 y
- * portátiles AF-100101..AF-100110) a su estado pendiente antes de cada corrida,
- * de modo que `npx playwright test` sea idempotente sin depender de `migrate:fresh`.
+ * Prepara los fixtures de la suite antes de cada corrida: restablece las placas
+ * reservadas (CPUs AF-100001..AF-100015 y portátiles AF-100101..AF-100110), la
+ * hoja de vida AF-100016 y el maestro base de zonas/ubicaciones que alimenta el
+ * selector de destino de `/traslados`. Todo vive en `e2e:reset-fixtures`, de modo
+ * que `npx playwright test` sea idempotente sin depender de `migrate:fresh --seed`.
  */
 export default function globalSetup(): void {
   const backendDir = fileURLToPath(new URL('../backend', import.meta.url))
