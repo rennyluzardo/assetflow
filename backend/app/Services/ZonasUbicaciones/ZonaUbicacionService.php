@@ -45,28 +45,37 @@ final class ZonaUbicacionService
 
     public function crearZona(array $datos): Zona
     {
-        return Zona::create($datos);
+        return $this->conUbicaciones(Zona::create($datos));
     }
 
     public function actualizarZona(Zona $zona, array $datos): Zona
     {
         $zona->update($datos);
 
-        return $zona->fresh();
+        return $this->conUbicaciones($zona->fresh());
     }
 
     public function activarZona(Zona $zona): Zona
     {
         $zona->update(['activo' => true]);
 
-        return $zona->fresh();
+        return $this->conUbicaciones($zona->fresh());
     }
 
     public function inactivarZona(Zona $zona): Zona
     {
         $zona->update(['activo' => false]);
 
-        return $zona->fresh();
+        return $this->conUbicaciones($zona->fresh());
+    }
+
+    /**
+     * Toda respuesta de zona incluye su relación `ubicaciones` (aunque sea un
+     * arreglo vacío) para respetar el contrato `Zona` que consume el frontend.
+     */
+    private function conUbicaciones(Zona $zona): Zona
+    {
+        return $zona->load('ubicaciones');
     }
 
     public function crearUbicacion(Zona $zona, array $datos): Ubicacion

@@ -56,9 +56,37 @@ it('crea una zona como administrador', function () {
 
     $this->postJson('/api/zonas', ['sede' => 'COLOMBIA', 'nombre' => 'CALI'])
         ->assertCreated()
-        ->assertJsonPath('data.nombre', 'CALI');
+        ->assertJsonPath('data.nombre', 'CALI')
+        ->assertJsonPath('data.ubicaciones', []);
 
     $this->assertDatabaseHas('zonas', ['sede' => 'COLOMBIA', 'nombre' => 'CALI', 'activo' => true]);
+});
+
+it('crea una zona con el admin sembrado por migrate:fresh --seed', function () {
+    // Reproduce el escenario reportado: base recién sembrada con DatabaseSeeder
+    // (equivalente a `php artisan migrate:fresh --seed`) y sesión del admin
+    // sembrado, sin preparar permisos a mano.
+    $this->seed();
+
+    $admin = User::where('email', 'admin@assetflow.local')->firstOrFail();
+    Sanctum::actingAs($admin);
+
+    $this->postJson('/api/zonas', ['sede' => 'COLOMBIA', 'nombre' => 'CALI'])
+        ->assertCreated()
+        ->assertJsonPath('data.sede', 'COLOMBIA')
+        ->assertJsonPath('data.nombre', 'CALI')
+        ->assertJsonPath('data.ubicaciones', []);
+
+    $this->assertDatabaseHas('zonas', ['sede' => 'COLOMBIA', 'nombre' => 'CALI', 'activo' => true]);
+});
+
+it('devuelve el detalle de validación (422) cuando falta la sede', function () {
+    Sanctum::actingAs($this->admin);
+
+    $this->postJson('/api/zonas', ['nombre' => 'SIN SEDE'])
+        ->assertStatus(422)
+        ->assertJsonValidationErrors('sede')
+        ->assertJsonPath('message', 'The sede field is required.');
 });
 
 it('rechaza duplicar el nombre de zona dentro de la misma sede', function () {
