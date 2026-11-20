@@ -33,9 +33,9 @@ class TrasladoController extends Controller
         return response()->json(['data' => $this->traslados->detalle($traslado)]);
     }
 
-    public function buscar(string $placaId): JsonResponse
+    public function buscar(string $identificador): JsonResponse
     {
-        return response()->json(['data' => $this->traslados->buscarEquipo($placaId)]);
+        return response()->json(['data' => $this->traslados->buscarEquipo($identificador)]);
     }
 
     public function agregarEquipo(Traslado $traslado, AgregarEquipoTrasladoRequest $request): JsonResponse

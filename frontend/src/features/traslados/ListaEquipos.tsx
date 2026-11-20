@@ -19,6 +19,9 @@ export function ListaEquipos({ equipos, onQuitar, quitarPendiente }: ListaEquipo
         <li key={equipo.id} className="flex items-center justify-between gap-3 py-2 text-sm">
           <div className="min-w-0">
             <p className="font-mono text-slate-900">{equipo.placa_id}</p>
+            {equipo.serial && (
+              <p className="font-mono text-xs text-slate-500">SN: {equipo.serial}</p>
+            )}
             <p className="truncate text-xs text-slate-500">{equipoResumen(equipo)}</p>
           </div>
 

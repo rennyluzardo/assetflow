@@ -67,7 +67,7 @@ export function PanelAbierto({ trasladoId, equipos }: PanelAbiertoProps) {
           status={status}
           message={message}
           label="Escaneo de equipos"
-          placeholder="Escanea la placa y presiona Enter"
+          placeholder="Escanea la placa o el serial y presiona Enter"
           disabled={agregar.isPending}
         />
       </div>

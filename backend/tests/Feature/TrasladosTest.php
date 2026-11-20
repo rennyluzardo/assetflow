@@ -595,3 +595,77 @@ it('devuelve la ubicación actual y el traslado activo al escanear la placa', fu
     expect($respuesta->json('data.ubicacion_actual'))->toBe('ALMACEN');
     expect($respuesta->json('data.traslado_activo'))->toBeNull();
 });
+
+it('busca un activo por su serial, insensible a mayúsculas', function () {
+    ($this->inventario)('AF-BUSCAR-SERIAL', 'Almacén', 'ALMACEN')->update(['serial' => 'PF146PTG']);
+
+    $respuesta = $this->getJson('/api/traslados/buscar/pf146ptg')->assertOk();
+
+    expect($respuesta->json('data.placa_id'))->toBe('AF-BUSCAR-SERIAL');
+    expect($respuesta->json('data.serial'))->toBe('PF146PTG');
+    expect($respuesta->json('data.zona_actual'))->toBe('Almacén');
+    expect($respuesta->json('data.ubicacion_actual'))->toBe('ALMACEN');
+    expect($respuesta->json('data.traslado_activo'))->toBeNull();
+});
+
+it('prioriza la placa sobre el serial al resolver un identificador ambiguo', function () {
+    ($this->inventario)('AF-PLACA', 'Almacén', 'ALMACEN')->update(['serial' => 'SN-PROPIOS-1']);
+    ($this->inventario)('AF-OTRA', 'Bogotá', 'SALA_DE_GARANTIA')->update(['serial' => 'AF-PLACA']);
+
+    $this->getJson('/api/traslados/buscar/af-placa')->assertOk()
+        ->assertJsonPath('data.placa_id', 'AF-PLACA')
+        ->assertJsonPath('data.serial', 'SN-PROPIOS-1');
+});
+
+it('agrega a un traslado ABIERTO un activo por su serial, ignorando mayúsculas y espacios', function () {
+    $traslado = ($this->crearTraslado)();
+    ($this->inventario)('AF-SERIAL-ADD', 'Almacén', 'ALMACEN')->update(['serial' => 'PF146PTG']);
+
+    $this->postJson("/api/traslados/{$traslado['id']}/equipos", ['placa_id' => '  pf146ptg  '])
+        ->assertCreated()
+        ->assertJsonPath('data.placa_id', 'AF-SERIAL-ADD');
+
+    $this->assertDatabaseHas('traslado_equipos', [
+        'traslado_id' => $traslado['id'],
+        'placa_id' => 'AF-SERIAL-ADD',
+    ]);
+
+    // El bautizo de origen usa la ubicación real del activo resuelto por serial.
+    $this->assertDatabaseHas('traslados', [
+        'id' => $traslado['id'],
+        'zona_origen' => 'Almacén',
+        'ubicacion_origen' => 'ALMACEN',
+    ]);
+});
+
+it('rechaza un identificador que no coincide con placa ni serial', function () {
+    $traslado = ($this->crearTraslado)();
+    ($this->inventario)('AF-EXISTENTE');
+
+    $this->postJson("/api/traslados/{$traslado['id']}/equipos", ['placa_id' => 'NO-EXISTE-999'])
+        ->assertStatus(422)
+        ->assertJsonValidationErrors('placa_id')
+        ->assertJsonPath('errors.placa_id.0', 'No existe un activo con la placa o serial NO-EXISTE-999.');
+});
+
+it('rechaza agregar el mismo activo dos veces aunque la segunda sea por serial', function () {
+    $traslado = ($this->crearTraslado)();
+    ($this->inventario)('AF-DUP-SERIAL', 'Almacén', 'ALMACEN')->update(['serial' => 'PF-DUP-1']);
+
+    $this->postJson("/api/traslados/{$traslado['id']}/equipos", ['placa_id' => 'AF-DUP-SERIAL'])
+        ->assertCreated();
+
+    $this->postJson("/api/traslados/{$traslado['id']}/equipos", ['placa_id' => 'pf-dup-1'])
+        ->assertStatus(422)
+        ->assertJsonValidationErrors('placa_id');
+});
+
+it('aplica TC-05 al agregar por serial un activo que ya está en el destino', function () {
+    $traslado = ($this->crearTraslado)('BOGOTA', 'SALA_DE_GARANTIA');
+    ($this->inventario)('AF-SERIAL-DEST', 'Bogotá', 'SALA_DE_GARANTIA')->update(['serial' => 'PF-DEST']);
+
+    $this->postJson("/api/traslados/{$traslado['id']}/equipos", ['placa_id' => 'pf-dest'])
+        ->assertStatus(422)
+        ->assertJsonValidationErrors('equipo')
+        ->assertJsonPath('errors.equipo.0', 'Operación denegada (TC-05): El equipo con placa AF-SERIAL-DEST ya se encuentra físicamente en el destino seleccionado (SALA DE GARANTIA).');
+});

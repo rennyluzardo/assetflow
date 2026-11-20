@@ -139,14 +139,19 @@ final class TrasladoService
     }
 
     /**
-     * Consulta de un activo al escanear la placa en traslados: devuelve su
-     * ubicación actual y, si ya viaja en otro traslado activo, ese traslado.
+     * Consulta de un activo al escanear una placa o un serial en traslados:
+     * devuelve su identidad y ubicación actual y, si ya viaja en otro traslado
+     * activo, ese traslado.
      *
      * @return array<string, mixed>
      */
-    public function buscarEquipo(string $placaId): array
+    public function buscarEquipo(string $identificador): array
     {
-        $inventario = InventarioGeneral::where('placa_id', $placaId)->firstOrFail();
+        $inventario = $this->resolverActivo($identificador);
+
+        if ($inventario === null) {
+            abort(404, "No existe un activo con la placa o serial {$identificador}.");
+        }
 
         $activo = TrasladoEquipo::query()
             ->where('inventario_id', $inventario->id)
@@ -180,27 +185,27 @@ final class TrasladoService
      * los siguientes deben coincidir con ese origen. En todos los casos el
      * activo debe estar en una ubicación distinta a la del destino.
      */
-    public function agregarEquipo(Traslado $traslado, string $placaId): TrasladoEquipo
+    public function agregarEquipo(Traslado $traslado, string $identificador): TrasladoEquipo
     {
         $this->asegurarAbierto($traslado);
 
-        $inventario = InventarioGeneral::where('placa_id', $placaId)->first();
+        $inventario = $this->resolverActivo($identificador);
 
         if (! $inventario) {
             throw ValidationException::withMessages([
-                'placa_id' => "No existe un activo con la placa {$placaId}.",
+                'placa_id' => "No existe un activo con la placa o serial {$identificador}.",
             ]);
         }
 
         if ($this->tieneTrasladoActivo($inventario->id, $traslado->id)) {
             throw ValidationException::withMessages([
-                'placa_id' => "El activo {$placaId} ya viaja en otro traslado activo.",
+                'placa_id' => "El activo {$identificador} ya viaja en otro traslado activo.",
             ]);
         }
 
         if ($traslado->equipos()->where('inventario_id', $inventario->id)->exists()) {
             throw ValidationException::withMessages([
-                'placa_id' => "El activo {$placaId} ya está en este traslado.",
+                'placa_id' => "El activo {$identificador} ya está en este traslado.",
             ]);
         }
 
@@ -223,7 +228,7 @@ final class TrasladoService
             ]);
         } elseif ($traslado->zona_origen !== $zonaOrigen || $traslado->ubicacion_origen !== $ubicacionOrigen) {
             throw ValidationException::withMessages([
-                'placa_id' => "El activo {$placaId} proviene de {$zonaOrigen} / {$ubicacionOrigen}, distinto al origen del lote ({$traslado->zona_origen} / {$traslado->ubicacion_origen}).",
+                'placa_id' => "El activo {$identificador} proviene de {$zonaOrigen} / {$ubicacionOrigen}, distinto al origen del lote ({$traslado->zona_origen} / {$traslado->ubicacion_origen}).",
             ]);
         }
 
@@ -499,6 +504,20 @@ final class TrasladoService
     private function normalizarIdentificador(string $valor): string
     {
         return mb_strtolower(trim($valor), 'UTF-8');
+    }
+
+    /**
+     * Resuelve un activo de `inventario_general` a partir de una placa o un
+     * serial escaneado. La comparación ignora mayúsculas/minúsculas y espacios
+     * en los extremos; ante una colisión entre la placa de un activo y el serial
+     * de otro, prevalece la coincidencia por `placa_id`.
+     */
+    private function resolverActivo(string $identificador): ?InventarioGeneral
+    {
+        $valor = $this->normalizarIdentificador($identificador);
+
+        return InventarioGeneral::whereRaw('LOWER(placa_id) = ?', [$valor])->first()
+            ?? InventarioGeneral::whereRaw('LOWER(serial) = ?', [$valor])->first();
     }
 
     private function tieneTrasladoActivo(int $inventarioId, int $trasladoId): bool
