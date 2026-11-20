@@ -10,7 +10,10 @@ class DatabaseSeeder extends Seeder
     {
         $this->call([
             RolePermissionSeeder::class,
-            ZonaUbicacionSeeder::class,
+            // Las zonas y ubicaciones ya no se siembran automáticamente con
+            // `migrate:fresh --seed`: son datos operativos que se gestionan
+            // desde el maestro de Zonas. Para recrear el set base manualmente:
+            //   php artisan db:seed --class=ZonaUbicacionSeeder
             InventarioMockSeeder::class,
         ]);
     }
