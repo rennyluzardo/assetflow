@@ -10,6 +10,7 @@ use App\Models\Traslado;
 use App\Models\TrasladoEquipo;
 use App\Models\User;
 use Illuminate\Auth\Access\AuthorizationException;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
@@ -355,17 +356,29 @@ final class TrasladoService
 
     /**
      * Marca como recibido un equipo concreto dentro de un traslado en tránsito
-     * (idempotente: re-verificar no duplica el marcado).
+     * (idempotente: re-verificar no duplica el marcado). El identificador puede
+     * ser la placa o el serial del activo; la comparación ignora mayúsculas y
+     * espacios en los extremos.
+     *
+     * @return array{traslado: Traslado, equipos: list<array<string, mixed>>}
      */
-    public function verificarEquipo(Traslado $traslado, string $placaId, User $usuario): TrasladoEquipo
+    public function verificarEquipo(Traslado $traslado, string $identificador, User $usuario): array
     {
         $this->asegurarEstado($traslado, TrasladoEstadoEnum::EN_TRANSITO);
 
-        $pivote = $traslado->equipos()->where('placa_id', $placaId)->first();
+        $valor = $this->normalizarIdentificador($identificador);
+
+        $pivote = $traslado->equipos()
+            ->where(function (Builder $query) use ($valor): void {
+                $query
+                    ->whereRaw('LOWER(placa_id) = ?', [$valor])
+                    ->orWhereHas('inventario', fn (Builder $sub): Builder => $sub->whereRaw('LOWER(serial) = ?', [$valor]));
+            })
+            ->first();
 
         if (! $pivote) {
             throw ValidationException::withMessages([
-                'placa_id' => "El activo {$placaId} no pertenece a este traslado.",
+                'placa_id' => "El código {$identificador} no corresponde a una placa ni a un serial de este traslado.",
             ]);
         }
 
@@ -377,7 +390,7 @@ final class TrasladoService
             ]);
         }
 
-        return $pivote->fresh();
+        return $this->detalle($traslado->fresh());
     }
 
     /**
@@ -477,6 +490,15 @@ final class TrasladoService
                 'traslado' => "Esta operación requiere un traslado en estado {$estado->label()}.",
             ]);
         }
+    }
+
+    /**
+     * Normaliza un identificador escaneado (placa o serial) para compararlo de
+     * forma insensible a mayúsculas/minúsculas y sin espacios en los extremos.
+     */
+    private function normalizarIdentificador(string $valor): string
+    {
+        return mb_strtolower(trim($valor), 'UTF-8');
     }
 
     private function tieneTrasladoActivo(int $inventarioId, int $trasladoId): bool

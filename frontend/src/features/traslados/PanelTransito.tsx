@@ -16,7 +16,7 @@ interface PanelTransitoProps {
 /** Panel del traslado EN_TRANSITO: verificar el 100% de equipos, confirmar la recepción o revertir. */
 export function PanelTransito({ trasladoId, equipos }: PanelTransitoProps) {
   const { session } = useAuth()
-  const [placa, setPlaca] = useState('')
+  const [codigo, setCodigo] = useState('')
   const [status, setStatus] = useState<ScannerStatus>('idle')
   const [message, setMessage] = useState<string | null>(null)
 
@@ -31,10 +31,10 @@ export function PanelTransito({ trasladoId, equipos }: PanelTransitoProps) {
 
   const escanear = (valor: string) => {
     verificar.mutate(valor, {
-      onSuccess: (pivote) => {
-        setPlaca('')
+      onSuccess: () => {
+        setCodigo('')
         setStatus('success')
-        setMessage(`Placa ${pivote.placa_id} verificada como recibida.`)
+        setMessage('Equipo verificado como recibido.')
       },
       onError: (error) => {
         setStatus('error')
@@ -69,13 +69,13 @@ export function PanelTransito({ trasladoId, equipos }: PanelTransitoProps) {
       {/* Cinta sticky exclusiva del escáner: cubre de lado a lado el body (`px-5`). */}
       <div className="sticky top-0 z-20 -mx-5 bg-white px-5 pb-3 pt-2">
         <ScannerInput
-          value={placa}
-          onChange={setPlaca}
+          value={codigo}
+          onChange={setCodigo}
           onSubmit={escanear}
           status={status}
           message={message}
           label="Verificación de recepción"
-          placeholder="Escanea la placa recibida y presiona Enter"
+          placeholder="Escanea la placa o el serial recibido y presiona Enter"
           disabled={verificar.isPending}
         />
       </div>

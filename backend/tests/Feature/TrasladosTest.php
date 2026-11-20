@@ -323,11 +323,53 @@ it('marca un equipo como recibido dentro de un traslado en tránsito', function 
 
     $this->postJson("/api/traslados/{$traslado['id']}/equipos/verificar", ['placa_id' => 'AF-VERIFICAR'])
         ->assertOk()
-        ->assertJsonPath('data.recibido', true);
+        ->assertJsonPath('data.equipos.0.recibido', true);
 
     $this->assertDatabaseHas('traslado_equipos', [
         'traslado_id' => $traslado['id'],
         'placa_id' => 'AF-VERIFICAR',
+        'recibido' => true,
+    ]);
+});
+
+it('verifica un equipo del traslado enviando su serial', function () {
+    $traslado = ($this->crearTraslado)();
+    ($this->inventario)('AF-SERIAL')->update(['serial' => 'SN-ABC-123']);
+
+    $this->postJson("/api/traslados/{$traslado['id']}/equipos", ['placa_id' => 'AF-SERIAL'])->assertCreated();
+    $this->postJson("/api/traslados/{$traslado['id']}/despachar")->assertOk();
+
+    Sanctum::actingAs($this->receptor);
+    $this->postJson("/api/traslados/{$traslado['id']}/equipos/verificar", ['placa_id' => '  sn-abc-123  '])
+        ->assertOk()
+        ->assertJsonPath('data.equipos.0.recibido', true)
+        ->assertJsonPath('data.equipos.0.placa_id', 'AF-SERIAL');
+
+    $this->assertDatabaseHas('traslado_equipos', [
+        'traslado_id' => $traslado['id'],
+        'placa_id' => 'AF-SERIAL',
+        'recibido' => true,
+        'recibido_por_id' => $this->receptor->id,
+    ]);
+});
+
+it('rechaza un serial que no pertenece al traslado', function () {
+    $traslado = ($this->crearTraslado)();
+    ($this->inventario)('AF-SERIAL-A')->update(['serial' => 'SN-AAA-111']);
+    ($this->inventario)('AF-SERIAL-B')->update(['serial' => 'SN-BBB-222']);
+
+    $this->postJson("/api/traslados/{$traslado['id']}/equipos", ['placa_id' => 'AF-SERIAL-A'])->assertCreated();
+    $this->postJson("/api/traslados/{$traslado['id']}/despachar")->assertOk();
+
+    Sanctum::actingAs($this->receptor);
+    $this->postJson("/api/traslados/{$traslado['id']}/equipos/verificar", ['placa_id' => 'SN-BBB-222'])
+        ->assertStatus(422)
+        ->assertJsonValidationErrors('placa_id')
+        ->assertJsonPath('errors.placa_id.0', 'El código SN-BBB-222 no corresponde a una placa ni a un serial de este traslado.');
+
+    $this->assertDatabaseMissing('traslado_equipos', [
+        'traslado_id' => $traslado['id'],
+        'placa_id' => 'AF-SERIAL-B',
         'recibido' => true,
     ]);
 });

@@ -91,8 +91,8 @@ export function useDespachar(id: number) {
 
 export function useVerificarEquipo(id: number) {
   const queryClient = useQueryClient()
-  return useMutation<PivoteEquipo, ApiError, string>({
-    mutationFn: (placaId) => api.verificarEquipoTraslado(id, placaId),
+  return useMutation<TrasladoDetalle, ApiError, string>({
+    mutationFn: (codigo) => api.verificarEquipoTraslado(id, codigo),
     onSuccess: () => invalidarTraslado(queryClient, id),
   })
 }

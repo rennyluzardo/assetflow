@@ -72,9 +72,9 @@ class TrasladoController extends Controller
 
     public function verificarEquipo(Traslado $traslado, VerificarEquipoTrasladoRequest $request): JsonResponse
     {
-        $pivote = $this->traslados->verificarEquipo($traslado, $request->validated('placa_id'), request()->user());
+        $detalle = $this->traslados->verificarEquipo($traslado, $request->validated('placa_id'), request()->user());
 
-        return response()->json(['data' => $pivote]);
+        return response()->json(['data' => $detalle]);
     }
 
     public function recibir(Traslado $traslado, RecibirTrasladoRequest $request): JsonResponse

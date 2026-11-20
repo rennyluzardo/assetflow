@@ -327,10 +327,10 @@ export const api = {
     return res.data
   },
 
-  async verificarEquipoTraslado(id: number, placaId: string): Promise<PivoteEquipo> {
-    const res = await request<{ data: PivoteEquipo }>(`/traslados/${id}/equipos/verificar`, {
+  async verificarEquipoTraslado(id: number, codigo: string): Promise<TrasladoDetalle> {
+    const res = await request<{ data: TrasladoDetalle }>(`/traslados/${id}/equipos/verificar`, {
       method: 'POST',
-      body: JSON.stringify({ placa_id: placaId }),
+      body: JSON.stringify({ placa_id: codigo }),
     })
     return res.data
   },
